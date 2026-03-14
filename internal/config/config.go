@@ -1,0 +1,117 @@
+package config
+
+import (
+	"fmt"
+	"log/slog"
+	"os"
+	"time"
+
+	"gopkg.in/yaml.v3"
+)
+
+type Config struct {
+	Sonarr  SonarrConfig  `yaml:"sonarr"`
+	Chat    ChatConfig    `yaml:"chat"`
+	Agent   AgentConfig   `yaml:"agent"`
+	Monitor MonitorConfig `yaml:"monitor"`
+	Log     LogConfig     `yaml:"log"`
+}
+
+type SonarrConfig struct {
+	BaseURL string `yaml:"base_url"`
+	APIKey  string `yaml:"api_key"`
+}
+
+type ChatConfig struct {
+	Backend    string `yaml:"backend"`
+	WebhookURL string `yaml:"webhook_url"`
+}
+
+type AgentConfig struct {
+	Model       string `yaml:"model"`
+	MaxTokens   int    `yaml:"max_tokens"`
+}
+
+type MonitorConfig struct {
+	Enabled  bool          `yaml:"enabled"`
+	Interval time.Duration `yaml:"interval"`
+}
+
+type LogConfig struct {
+	Level  string `yaml:"level"`
+	Format string `yaml:"format"`
+}
+
+func Load(path string) (*Config, error) {
+	cfg := &Config{
+		Agent: AgentConfig{
+			Model:     "claude-sonnet-4-5-20250929",
+			MaxTokens: 4096,
+		},
+		Monitor: MonitorConfig{
+			Enabled:  true,
+			Interval: 5 * time.Minute,
+		},
+		Log: LogConfig{
+			Level:  "info",
+			Format: "text",
+		},
+		Chat: ChatConfig{
+			Backend: "googlechat",
+		},
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading config file: %w", err)
+	}
+	if err := yaml.Unmarshal(data, cfg); err != nil {
+		return nil, fmt.Errorf("parsing config file: %w", err)
+	}
+
+	applyEnvOverrides(cfg)
+
+	if err := validate(cfg); err != nil {
+		return nil, fmt.Errorf("config validation: %w", err)
+	}
+
+	return cfg, nil
+}
+
+func applyEnvOverrides(cfg *Config) {
+	if v := os.Getenv("SONARR_API_KEY"); v != "" {
+		cfg.Sonarr.APIKey = v
+	}
+	if v := os.Getenv("SONARR_URL"); v != "" {
+		cfg.Sonarr.BaseURL = v
+	}
+	if v := os.Getenv("GOOGLE_CHAT_WEBHOOK_URL"); v != "" {
+		cfg.Chat.WebhookURL = v
+	}
+}
+
+func validate(cfg *Config) error {
+	if cfg.Sonarr.BaseURL == "" {
+		return fmt.Errorf("sonarr.base_url is required")
+	}
+	if cfg.Sonarr.APIKey == "" {
+		return fmt.Errorf("sonarr.api_key is required (set SONARR_API_KEY env var)")
+	}
+	if cfg.Chat.WebhookURL == "" {
+		return fmt.Errorf("chat.webhook_url is required (set GOOGLE_CHAT_WEBHOOK_URL env var)")
+	}
+	return nil
+}
+
+func (cfg *Config) LogLevel() slog.Level {
+	switch cfg.Log.Level {
+	case "debug":
+		return slog.LevelDebug
+	case "warn":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
+}

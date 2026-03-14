@@ -1,0 +1,22 @@
+# reel-life configuration
+# Secrets should be set via environment variables, not in this file.
+
+sonarr:
+  base_url: http://sonarr:8989
+  # api_key: set SONARR_API_KEY env var
+
+chat:
+  backend: googlechat
+  # webhook_url: set GOOGLE_CHAT_WEBHOOK_URL env var
+
+agent:
+  model: claude-sonnet-4-5-20250929
+  max_tokens: 4096
+
+monitor:
+  enabled: true
+  interval: 5m
+
+log:
+  level: info    # debug, info, warn, error
+  format: text   # text or json
