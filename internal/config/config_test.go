@@ -121,13 +121,13 @@ chat:
 			want: "sonarr.api_key is required (set SONARR_API_KEY env var)",
 		},
 		{
-			name: "missing chat webhook_url",
+			name: "missing chat config",
 			yaml: `
 sonarr:
   base_url: http://sonarr:8989
   api_key: key
 `,
-			want: "chat.webhook_url is required (set GOOGLE_CHAT_WEBHOOK_URL env var)",
+			want: "chat.webhook_url or chat.service_account_file + chat.space is required",
 		},
 	}
 
@@ -142,6 +142,70 @@ sonarr:
 				t.Errorf("error = %q, want to contain %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestLoadAppMode(t *testing.T) {
+	yaml := `
+sonarr:
+  base_url: http://sonarr:8989
+  api_key: test-key
+chat:
+  service_account_file: /path/to/sa.json
+  space: spaces/AAAAA
+  project_number: "12345"
+`
+	path := writeTemp(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if !cfg.UseAppMode() {
+		t.Error("expected UseAppMode() = true when service_account_file and space set")
+	}
+	if cfg.Chat.ProjectNumber != "12345" {
+		t.Errorf("Chat.ProjectNumber = %q, want %q", cfg.Chat.ProjectNumber, "12345")
+	}
+}
+
+func TestLoadAppModeEnvOverride(t *testing.T) {
+	yaml := `
+sonarr:
+  base_url: http://sonarr:8989
+  api_key: test-key
+chat:
+  space: spaces/AAAAA
+`
+	path := writeTemp(t, yaml)
+	t.Setenv("GOOGLE_SERVICE_ACCOUNT_FILE", "/env/sa.json")
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if cfg.Chat.ServiceAccountFile != "/env/sa.json" {
+		t.Errorf("ServiceAccountFile = %q, want env override", cfg.Chat.ServiceAccountFile)
+	}
+	if !cfg.UseAppMode() {
+		t.Error("expected UseAppMode() = true with env override")
+	}
+}
+
+func TestUseAppModeFalseWithWebhookOnly(t *testing.T) {
+	yaml := `
+sonarr:
+  base_url: http://sonarr:8989
+  api_key: test-key
+chat:
+  webhook_url: https://chat.example.com/webhook
+`
+	path := writeTemp(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if cfg.UseAppMode() {
+		t.Error("expected UseAppMode() = false when only webhook_url set")
 	}
 }
 
