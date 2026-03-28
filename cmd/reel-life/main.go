@@ -37,7 +37,25 @@ func main() {
 	}
 
 	sonarrClient := sonarr.NewClient(cfg.Sonarr.BaseURL, cfg.Sonarr.APIKey)
-	notifier := chat.NewGoogleChat(cfg.Chat.WebhookURL, logger)
+
+	// Select notifier: Chat API (app mode) or webhook (legacy).
+	var notifier chat.Notifier
+	if cfg.UseAppMode() {
+		saKey, err := os.ReadFile(cfg.Chat.ServiceAccountFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error reading service account file: %v\n", err)
+			os.Exit(1)
+		}
+		notifier, err = chat.NewGoogleChatApp(saKey, cfg.Chat.Space, logger)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error creating Chat API client: %v\n", err)
+			os.Exit(1)
+		}
+		logger.Info("using Google Chat App (API) notifier", "space", cfg.Chat.Space)
+	} else {
+		notifier = chat.NewGoogleChat(cfg.Chat.WebhookURL, logger)
+		logger.Info("using Google Chat webhook notifier")
+	}
 
 	anthropicKey := os.Getenv("ANTHROPIC_API_KEY")
 	if anthropicKey == "" {
@@ -85,12 +103,9 @@ func main() {
 		fmt.Fprintln(w, "ok")
 	})
 
-	// Webhook endpoint for incoming chat messages
-	mux.HandleFunc("POST /webhook", func(w http.ResponseWriter, r *http.Request) {
-		// TODO: Parse Google Chat event payload and extract message text.
-		// For now, this is a placeholder for the bidirectional chat flow.
-		w.WriteHeader(http.StatusOK)
-	})
+	// Webhook endpoint for incoming Google Chat events
+	webhookHandler := chat.NewWebhookHandler(agentInstance, cfg.Chat.ProjectNumber, logger)
+	mux.Handle("POST /webhook", webhookHandler)
 
 	server := &http.Server{
 		Addr:    ":8080",
@@ -104,9 +119,6 @@ func main() {
 	}()
 
 	logger.Info("reel-life started", "addr", server.Addr)
-
-	// Reference agentInstance to show it's wired up (used by webhook handler in future).
-	_ = agentInstance
 
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
 		logger.Error("HTTP server error", "error", err)

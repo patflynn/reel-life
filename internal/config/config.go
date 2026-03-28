@@ -23,8 +23,11 @@ type SonarrConfig struct {
 }
 
 type ChatConfig struct {
-	Backend    string `yaml:"backend"`
-	WebhookURL string `yaml:"webhook_url"`
+	Backend            string `yaml:"backend"`
+	WebhookURL         string `yaml:"webhook_url"`
+	ServiceAccountFile string `yaml:"service_account_file"`
+	Space              string `yaml:"space"`
+	ProjectNumber      string `yaml:"project_number"`
 }
 
 type AgentConfig struct {
@@ -96,6 +99,15 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("GOOGLE_CHAT_WEBHOOK_URL"); v != "" {
 		cfg.Chat.WebhookURL = v
 	}
+	if v := os.Getenv("GOOGLE_SERVICE_ACCOUNT_FILE"); v != "" {
+		cfg.Chat.ServiceAccountFile = v
+	}
+}
+
+// UseAppMode returns true when the Chat API (service account) notifier should be used
+// instead of the legacy incoming webhook.
+func (cfg *Config) UseAppMode() bool {
+	return cfg.Chat.ServiceAccountFile != "" && cfg.Chat.Space != ""
 }
 
 func validate(cfg *Config) error {
@@ -105,8 +117,9 @@ func validate(cfg *Config) error {
 	if cfg.Sonarr.APIKey == "" {
 		return fmt.Errorf("sonarr.api_key is required (set SONARR_API_KEY env var)")
 	}
-	if cfg.Chat.WebhookURL == "" {
-		return fmt.Errorf("chat.webhook_url is required (set GOOGLE_CHAT_WEBHOOK_URL env var)")
+	// Either webhook URL or service account + space must be configured.
+	if cfg.Chat.WebhookURL == "" && (cfg.Chat.ServiceAccountFile == "" || cfg.Chat.Space == "") {
+		return fmt.Errorf("chat.webhook_url or chat.service_account_file + chat.space is required")
 	}
 	return nil
 }
