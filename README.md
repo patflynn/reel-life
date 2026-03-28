@@ -25,8 +25,8 @@ The **agent** handles reactive requests — a user asks something in Google Chat
 
 ## Features
 
-- **Reactive**: Natural language requests — "search for Breaking Bad", "what's downloading?", "check system health"
-- **Proactive**: Automatic alerts for health issues, failed downloads, and indexer problems
+- **Reactive**: Natural language requests — "search for Breaking Bad", "what's downloading?", "check system health" *(agent logic is implemented; bidirectional Google Chat webhook is [on the roadmap](docs/google-chat-setup.md#bidirectional-webhooks-not-yet-implemented))*
+- **Proactive**: Automatic alerts for health issues, failed downloads, and indexer problems *(active now via outgoing webhooks)*
 - **Constrained**: The AI agent can ONLY call defined media API tools — no filesystem, no shell, no arbitrary network
 - **Pluggable**: Chat backend interface supports additional backends (Slack, Discord, etc.)
 
@@ -75,7 +75,7 @@ docker run -p 8080:8080 \
   -e ANTHROPIC_API_KEY=your-key \
   -e SONARR_API_KEY=your-key \
   -e GOOGLE_CHAT_WEBHOOK_URL=your-webhook \
-  -v $(pwd)/config.yaml:/config.yaml \
+  -v $(pwd)/config.yaml:/config.yaml:ro \
   reel-life -config /config.yaml
 ```
 
