@@ -45,7 +45,24 @@ func main() {
 		os.Exit(1)
 	}
 
-	agentInstance := agent.New(anthropicKey, sonarrClient, cfg.Agent.Model, cfg.Agent.MaxTokens, logger)
+	// Build rate limiter from config (or defaults).
+	var limiter *agent.RateLimiter
+	rl := cfg.Agent.RateLimits
+	maxPerMin, maxPerReq, maxDestructive := agent.DefaultMaxCallsPerMinute, agent.DefaultMaxCallsPerRequest, agent.DefaultMaxDestructive
+	if rl != nil {
+		if rl.MaxCallsPerMinute > 0 {
+			maxPerMin = rl.MaxCallsPerMinute
+		}
+		if rl.MaxCallsPerRequest > 0 {
+			maxPerReq = rl.MaxCallsPerRequest
+		}
+		if rl.MaxDestructive > 0 {
+			maxDestructive = rl.MaxDestructive
+		}
+	}
+	limiter = agent.NewRateLimiter(maxPerMin, maxPerReq, maxDestructive)
+
+	agentInstance := agent.New(anthropicKey, sonarrClient, cfg.Agent.Model, cfg.Agent.MaxTokens, logger, limiter)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()

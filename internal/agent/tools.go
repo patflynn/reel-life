@@ -37,43 +37,78 @@ func generateSchema[T any]() anthropic.ToolInputSchemaParam {
 	}
 }
 
-func toolDefinitions() []anthropic.ToolUnionParam {
-	tools := []anthropic.ToolParam{
+// toolDef pairs an Anthropic tool definition with a destructive flag for rate limiting.
+type toolDef struct {
+	Param       anthropic.ToolParam
+	Destructive bool
+}
+
+// destructiveTools is the set of tools that modify state.
+var destructiveTools = map[string]bool{
+	"add_series":    true,
+	"remove_failed": true,
+}
+
+// IsDestructive reports whether the named tool modifies state.
+func IsDestructive(name string) bool {
+	return destructiveTools[name]
+}
+
+func allToolDefs() []toolDef {
+	return []toolDef{
 		{
-			Name:        "search_series",
-			Description: anthropic.String("Search for TV series by name. Returns matching series with details like title, year, overview, and TVDB ID."),
-			InputSchema: generateSchema[searchSeriesInput](),
+			Param: anthropic.ToolParam{
+				Name:        "search_series",
+				Description: anthropic.String("Search for TV series by name. Returns matching series with details like title, year, overview, and TVDB ID."),
+				InputSchema: generateSchema[searchSeriesInput](),
+			},
 		},
 		{
-			Name:        "add_series",
-			Description: anthropic.String("Add a TV series to Sonarr for monitoring and automatic downloading. Requires the TVDB ID from a search result."),
-			InputSchema: generateSchema[addSeriesInput](),
+			Param: anthropic.ToolParam{
+				Name:        "add_series",
+				Description: anthropic.String("Add a TV series to Sonarr for monitoring and automatic downloading. Requires the TVDB ID from a search result."),
+				InputSchema: generateSchema[addSeriesInput](),
+			},
+			Destructive: true,
 		},
 		{
-			Name:        "get_queue",
-			Description: anthropic.String("Get the current download queue showing active and pending downloads with their status."),
-			InputSchema: generateSchema[struct{}](),
+			Param: anthropic.ToolParam{
+				Name:        "get_queue",
+				Description: anthropic.String("Get the current download queue showing active and pending downloads with their status."),
+				InputSchema: generateSchema[struct{}](),
+			},
 		},
 		{
-			Name:        "get_history",
-			Description: anthropic.String("Get recent download history showing completed, failed, and imported episodes."),
-			InputSchema: generateSchema[getHistoryInput](),
+			Param: anthropic.ToolParam{
+				Name:        "get_history",
+				Description: anthropic.String("Get recent download history showing completed, failed, and imported episodes."),
+				InputSchema: generateSchema[getHistoryInput](),
+			},
 		},
 		{
-			Name:        "check_health",
-			Description: anthropic.String("Check Sonarr system health for warnings and errors like connectivity issues, disk space, or indexer problems."),
-			InputSchema: generateSchema[struct{}](),
+			Param: anthropic.ToolParam{
+				Name:        "check_health",
+				Description: anthropic.String("Check Sonarr system health for warnings and errors like connectivity issues, disk space, or indexer problems."),
+				InputSchema: generateSchema[struct{}](),
+			},
 		},
 		{
-			Name:        "remove_failed",
-			Description: anthropic.String("Remove a failed download from the queue. Optionally blocklist the release to prevent re-downloading."),
-			InputSchema: generateSchema[removeFailedInput](),
+			Param: anthropic.ToolParam{
+				Name:        "remove_failed",
+				Description: anthropic.String("Remove a failed download from the queue. Optionally blocklist the release to prevent re-downloading."),
+				InputSchema: generateSchema[removeFailedInput](),
+			},
+			Destructive: true,
 		},
 	}
+}
 
-	result := make([]anthropic.ToolUnionParam, len(tools))
-	for i, t := range tools {
-		result[i] = anthropic.ToolUnionParam{OfTool: &t}
+func toolDefinitions() []anthropic.ToolUnionParam {
+	defs := allToolDefs()
+	result := make([]anthropic.ToolUnionParam, len(defs))
+	for i, d := range defs {
+		p := d.Param
+		result[i] = anthropic.ToolUnionParam{OfTool: &p}
 	}
 	return result
 }

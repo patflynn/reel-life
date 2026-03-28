@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"testing"
 
 	"github.com/patflynn/reel-life/internal/sonarr"
@@ -41,7 +42,7 @@ func TestDispatchSearchSeries(t *testing.T) {
 			{ID: 1, Title: "Breaking Bad", Year: 2008, TVDBID: 81189},
 		},
 	}
-	a := &Agent{sonarr: mock}
+	a := &Agent{sonarr: mock, logger: slog.Default()}
 
 	input, _ := json.Marshal(searchSeriesInput{Term: "breaking bad"})
 	result, isErr := a.dispatchTool(context.Background(), "search_series", input)
@@ -64,7 +65,7 @@ func TestDispatchCheckHealth(t *testing.T) {
 			{Source: "IndexerCheck", Type: "warning", Message: "test warning"},
 		},
 	}
-	a := &Agent{sonarr: mock}
+	a := &Agent{sonarr: mock, logger: slog.Default()}
 
 	input, _ := json.Marshal(struct{}{})
 	result, isErr := a.dispatchTool(context.Background(), "check_health", input)
@@ -83,7 +84,7 @@ func TestDispatchCheckHealth(t *testing.T) {
 
 func TestDispatchRemoveFailed(t *testing.T) {
 	mock := &mockSonarr{}
-	a := &Agent{sonarr: mock}
+	a := &Agent{sonarr: mock, logger: slog.Default()}
 
 	input, _ := json.Marshal(removeFailedInput{ID: 42, Blocklist: true})
 	result, isErr := a.dispatchTool(context.Background(), "remove_failed", input)
@@ -120,7 +121,7 @@ func TestDispatchGetQueue(t *testing.T) {
 			},
 		},
 	}
-	a := &Agent{sonarr: mock}
+	a := &Agent{sonarr: mock, logger: slog.Default()}
 
 	input, _ := json.Marshal(struct{}{})
 	result, isErr := a.dispatchTool(context.Background(), "get_queue", input)
@@ -139,7 +140,7 @@ func TestDispatchGetQueue(t *testing.T) {
 
 func TestDispatchAddSeries(t *testing.T) {
 	mock := &mockSonarr{}
-	a := &Agent{sonarr: mock}
+	a := &Agent{sonarr: mock, logger: slog.Default()}
 
 	input, _ := json.Marshal(addSeriesInput{
 		Title:            "Breaking Bad",
@@ -170,7 +171,7 @@ func TestDispatchGetHistory(t *testing.T) {
 			},
 		},
 	}
-	a := &Agent{sonarr: mock}
+	a := &Agent{sonarr: mock, logger: slog.Default()}
 
 	input, _ := json.Marshal(getHistoryInput{PageSize: 10})
 	result, isErr := a.dispatchTool(context.Background(), "get_history", input)
