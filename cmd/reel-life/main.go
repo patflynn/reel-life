@@ -48,7 +48,7 @@ func main() {
 	// Build rate limiter from config (or defaults).
 	var limiter *agent.RateLimiter
 	rl := cfg.Agent.RateLimits
-	maxPerMin, maxPerReq, maxDestructive := 30, 10, 5
+	maxPerMin, maxPerReq, maxDestructive := agent.DefaultMaxCallsPerMinute, agent.DefaultMaxCallsPerRequest, agent.DefaultMaxDestructive
 	if rl != nil {
 		if rl.MaxCallsPerMinute > 0 {
 			maxPerMin = rl.MaxCallsPerMinute

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/anthropics/anthropic-sdk-go"
@@ -174,19 +175,22 @@ func (a *Agent) executeToolWithAudit(ctx context.Context, name string, rawInput 
 }
 
 // sanitizeInput returns a string summary of tool input suitable for logging.
-// It strips any field whose key contains "key" or "secret" to avoid leaking credentials.
+// It strips any field whose key contains sensitive substrings to avoid leaking credentials.
 func sanitizeInput(raw json.RawMessage) string {
 	var m map[string]any
 	if err := json.Unmarshal(raw, &m); err != nil {
 		return "<invalid json>"
 	}
 	for k := range m {
-		switch k {
-		case "api_key", "key", "secret", "password", "token":
+		lowerK := strings.ToLower(k)
+		if strings.Contains(lowerK, "key") || strings.Contains(lowerK, "secret") || strings.Contains(lowerK, "password") || strings.Contains(lowerK, "token") {
 			m[k] = "REDACTED"
 		}
 	}
-	out, _ := json.Marshal(m)
+	out, err := json.Marshal(m)
+	if err != nil {
+		return "<failed to sanitize json>"
+	}
 	return string(out)
 }
 

@@ -138,15 +138,80 @@ func TestAuditLogging(t *testing.T) {
 }
 
 func TestSanitizeInput(t *testing.T) {
-	raw := json.RawMessage(`{"term":"test","api_key":"secret123"}`)
-	result := sanitizeInput(raw)
-	if strings.Contains(result, "secret123") {
-		t.Error("api_key was not redacted")
+	tests := []struct {
+		name        string
+		input       string
+		shouldHave  []string
+		shouldNotHave []string
+	}{
+		{
+			name:        "exact key api_key",
+			input:       `{"term":"test","api_key":"secret123"}`,
+			shouldHave:  []string{"REDACTED", "test"},
+			shouldNotHave: []string{"secret123"},
+		},
+		{
+			name:        "exact key secret",
+			input:       `{"name":"foo","secret":"hunter2"}`,
+			shouldHave:  []string{"REDACTED", "foo"},
+			shouldNotHave: []string{"hunter2"},
+		},
+		{
+			name:        "exact key password",
+			input:       `{"user":"admin","password":"p@ss"}`,
+			shouldHave:  []string{"REDACTED", "admin"},
+			shouldNotHave: []string{"p@ss"},
+		},
+		{
+			name:        "exact key token",
+			input:       `{"token":"abc123","query":"hello"}`,
+			shouldHave:  []string{"REDACTED", "hello"},
+			shouldNotHave: []string{"abc123"},
+		},
+		{
+			name:        "substring match sonarr_api_key",
+			input:       `{"sonarr_api_key":"xyz","term":"show"}`,
+			shouldHave:  []string{"REDACTED", "show"},
+			shouldNotHave: []string{"xyz"},
+		},
+		{
+			name:        "substring match user_token",
+			input:       `{"user_token":"tok99","id":1}`,
+			shouldHave:  []string{"REDACTED"},
+			shouldNotHave: []string{"tok99"},
+		},
+		{
+			name:        "case insensitive API_KEY",
+			input:       `{"API_KEY":"upper","value":"safe"}`,
+			shouldHave:  []string{"REDACTED", "safe"},
+			shouldNotHave: []string{"upper"},
+		},
+		{
+			name:       "invalid json",
+			input:      `not json`,
+			shouldHave: []string{"<invalid json>"},
+		},
+		{
+			name:       "no sensitive fields",
+			input:      `{"term":"test","count":5}`,
+			shouldHave: []string{"test"},
+			shouldNotHave: []string{"REDACTED"},
+		},
 	}
-	if !strings.Contains(result, "REDACTED") {
-		t.Error("expected REDACTED placeholder")
-	}
-	if !strings.Contains(result, "test") {
-		t.Error("non-secret field should be preserved")
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := sanitizeInput(json.RawMessage(tt.input))
+			for _, s := range tt.shouldHave {
+				if !strings.Contains(result, s) {
+					t.Errorf("expected result to contain %q, got %s", s, result)
+				}
+			}
+			for _, s := range tt.shouldNotHave {
+				if strings.Contains(result, s) {
+					t.Errorf("expected result NOT to contain %q, got %s", s, result)
+				}
+			}
+		})
 	}
 }

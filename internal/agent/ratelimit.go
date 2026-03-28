@@ -6,6 +6,12 @@ import (
 	"time"
 )
 
+const (
+	DefaultMaxCallsPerMinute  = 30
+	DefaultMaxCallsPerRequest = 10
+	DefaultMaxDestructive     = 5
+)
+
 // RateLimiter enforces per-minute and per-request limits on tool calls,
 // with a separate limit for destructive (state-modifying) tools.
 type RateLimiter struct {
