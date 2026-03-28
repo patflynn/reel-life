@@ -28,8 +28,16 @@ type ChatConfig struct {
 }
 
 type AgentConfig struct {
-	Model       string `yaml:"model"`
-	MaxTokens   int    `yaml:"max_tokens"`
+	Model      string           `yaml:"model"`
+	MaxTokens  int              `yaml:"max_tokens"`
+	RateLimits *RateLimitConfig `yaml:"rate_limits,omitempty"`
+}
+
+// RateLimitConfig controls how many tool calls the agent can make.
+type RateLimitConfig struct {
+	MaxCallsPerMinute  int `yaml:"max_calls_per_minute"`
+	MaxCallsPerRequest int `yaml:"max_calls_per_request"`
+	MaxDestructive     int `yaml:"max_destructive"`
 }
 
 type MonitorConfig struct {
