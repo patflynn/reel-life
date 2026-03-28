@@ -1,0 +1,16 @@
+{
+  "id": "20260328-1613-17f0",
+  "prompt": "Add CI pipeline with GitHub Actions and zizmor security scanning.\n\n## What to build\n\n### 1. GitHub Actions CI workflow\n\nCreate `.github/workflows/ci.yml` that runs on push to main and on PRs:\n\n**Jobs:**\n- **test**: Run `go test ./...` on ubuntu-latest with Go 1.24\n- **build**: Run `go build ./cmd/reel-life` to verify compilation\n- **vet**: Run `go vet ./...`\n- **zizmor**: Run zizmor to scan the workflow files themselves for security issues\n\n### 2. Zizmor integration\n\nLook at how the cosmo repo (patflynn/cosmo) sets up zizmor in its CI — it uses `nix run` to run zizmor. For reel-life, since it's a Go project without nix, install zizmor directly:\n\n```yaml\n- name: Install zizmor\n  run: cargo install zizmor || pip install zizmor\n```\n\nOr better, use the official zizmor GitHub Action if one exists. Check https://github.com/woodruffw/zizmor for the recommended CI integration approach. The simplest way is usually:\n\n```yaml\n- uses: woodruffw/zizmor-action@v1\n```\n\n### 3. Docker build verification\n\nAdd a job that builds the Docker image to catch Dockerfile issues:\n```yaml\n- name: Build Docker image\n  run: docker build -t reel-life:test .\n```\n\n### Style notes\n- Read CLAUDE.md for project conventions\n- Keep the workflow simple and fast\n- Make sure the workflow itself passes zizmor scanning (no unpinned actions, etc.)\n- Pin action versions to full SHA hashes for security (zizmor will flag unpinned versions)\n- Run the tests locally first to make sure they pass before creating the PR",
+  "issue": null,
+  "branch": "agent/20260328-1613-17f0",
+  "worktree": "/tmp/klaus-sessions/reel-life/20260328-1613-17f0",
+  "tmux_pane": "%76",
+  "budget": "5.00",
+  "log_file": "/home/patrick/.klaus/sessions/session-20260328-1435-39a7/logs/20260328-1613-17f0.jsonl",
+  "created_at": "2026-03-28T16:13:41-04:00",
+  "cost_usd": 0.7806595999999999,
+  "duration_ms": 6941,
+  "pr_url": "https://github.com/patflynn/reel-life/pull/2",
+  "target_repo": "reel-life",
+  "clone_dir": "/home/patrick/hack/reel-life"
+}
