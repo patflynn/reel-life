@@ -95,7 +95,10 @@ func (g *GoogleChatApp) postAPI(ctx context.Context, url string, msg apiMessage)
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		respBody, _ := io.ReadAll(resp.Body)
+		respBody, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			return fmt.Errorf("chat API error %d (and failed to read response body: %w)", resp.StatusCode, readErr)
+		}
 		return fmt.Errorf("chat API error %d: %s", resp.StatusCode, string(respBody))
 	}
 
