@@ -22,11 +22,24 @@
 #       family = "inet";
 #       content = ''
 #         chain output {
-#           type filter hook output priority 0; policy accept;
+#           type filter hook output priority 0; policy drop;
+#
+#           # Allow loopback traffic
+#           oifname "lo" accept;
+#
+#           # Allow established/related connections
+#           ct state { established, related } accept;
+#
+#           # Allow DNS queries from the service user
+#           meta skuid "reel-life" udp dport 53 accept;
+#           meta skuid "reel-life" tcp dport 53 accept;
+#
+#           # Allow access to required services
 #           meta skuid "reel-life" tcp dport { 80, 443 } ip daddr {
-#             127.0.0.1, # Sonarr
-#           } accept
-#           meta skuid "reel-life" tcp dport { 80, 443 } drop
+#             127.0.0.1,           # Sonarr
+#             api.anthropic.com,   # Anthropic (resolved at rule load time)
+#             chat.googleapis.com  # Google Chat (resolved at rule load time)
+#           } accept;
 #         }
 #       '';
 #     };
