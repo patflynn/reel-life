@@ -1,3 +1,41 @@
+# reel-life NixOS module
+#
+# Systemd hardening overview:
+#   This module runs reel-life as a sandboxed systemd service with DynamicUser,
+#   strict filesystem protection, capability dropping, syscall filtering, and
+#   optional network allowlisting.
+#
+# Testing the sandbox:
+#   systemd-analyze security reel-life
+#   Expected score: ~2.0 (on a 0–10 scale where lower is more secure).
+#
+# Network allowlisting:
+#   The `restrictNetwork` option enables systemd's IPAddressAllow/IPAddressDeny
+#   for localhost (Sonarr) access. Since IPAddressAllow works with IPs, not DNS
+#   names, external APIs (api.anthropic.com, chat.googleapis.com) require either:
+#     1. Adding their IP ranges to `allowedHosts` (IPs change over time), or
+#     2. Using nftables for DNS-aware filtering (recommended for production):
+#
+#   networking.nftables = {
+#     enable = true;
+#     tables.reel-life-egress = {
+#       family = "inet";
+#       content = ''
+#         chain output {
+#           type filter hook output priority 0; policy accept;
+#           meta skuid "reel-life" tcp dport { 80, 443 } ip daddr {
+#             127.0.0.1, # Sonarr
+#           } accept
+#           meta skuid "reel-life" tcp dport { 80, 443 } drop
+#         }
+#       '';
+#     };
+#   };
+#
+#   Note: nftables rules can reference DNS names resolved at rule-load time.
+#   For dynamic IPs, consider a systemd timer that periodically re-resolves
+#   and reloads the nftables ruleset.
+
 { config, lib, pkgs, ... }:
 let
   cfg = config.services.reel-life;
@@ -65,6 +103,28 @@ in
       default = [ ];
       description = "Files containing environment variables (for secrets like API keys)";
     };
+
+    restrictNetwork = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        When enabled, restricts network access to allowedHosts only via
+        systemd's IPAddressAllow/IPAddressDeny. Note: external API access
+        (Anthropic, Google Chat) requires adding their IP ranges to
+        allowedHosts, or using nftables for DNS-aware filtering.
+      '';
+    };
+
+    allowedHosts = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ "127.0.0.1" "::1" ];
+      description = ''
+        IP addresses the service is allowed to connect to when
+        restrictNetwork is enabled. Sonarr (localhost) is always allowed
+        via the defaults. Add resolved IPs for api.anthropic.com and
+        chat.googleapis.com as needed.
+      '';
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -96,19 +156,61 @@ in
         Restart = "on-failure";
         RestartSec = 10;
 
-        # Security hardening
+        # Run as an ephemeral system user
         DynamicUser = true;
-        NoNewPrivileges = true;
+
+        # Filesystem: strict read-only root, no home, private /tmp and /dev
         ProtectSystem = "strict";
         ProtectHome = true;
         PrivateTmp = true;
         PrivateDevices = true;
+        ReadWritePaths = [ ];  # service is stateless
+
+        # Kernel: block access to tunables, modules, logs, cgroups, clock, hostname
         ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectKernelLogs = true;
         ProtectControlGroups = true;
+        ProtectClock = true;
+        ProtectHostname = true;
+
+        # Capabilities: drop everything
+        CapabilityBoundingSet = "";
+        AmbientCapabilities = "";
+        NoNewPrivileges = true;
+
+        # Syscall filtering: allow standard service calls, deny dangerous ones
+        SystemCallFilter = [
+          "@system-service"
+          "~@mount"
+          "~@module"
+          "~@reboot"
+          "~@swap"
+          "~@raw-io"
+          "~@clock"
+          "~@debug"
+          "~@obsolete"
+        ];
+        SystemCallArchitectures = "native";
+
+        # Security: lock down personality, namespaces, realtime, SUID/SGID
+        LockPersonality = true;
+        RestrictRealtime = true;
         RestrictSUIDSGID = true;
+        RestrictNamespaces = true;
+        RestrictAddressFamilies = [ "AF_INET" "AF_INET6" "AF_UNIX" ];
+
+        # Resource limits
+        MemoryMax = "256M";
+        CPUQuota = "50%";
+        TasksMax = 32;
 
         # Secrets via environment files (e.g. agenix paths)
         EnvironmentFile = cfg.environmentFiles;
+      } // lib.optionalAttrs cfg.restrictNetwork {
+        # Network allowlist: only permit traffic to specified IPs
+        IPAddressAllow = cfg.allowedHosts;
+        IPAddressDeny = "any";
       };
     };
   };
