@@ -70,18 +70,18 @@ in
   config = lib.mkIf cfg.enable {
     environment.etc."reel-life/config.yaml".text = ''
       sonarr:
-        base_url: ${cfg.sonarrUrl}
+        base_url: "${cfg.sonarrUrl}"
       chat:
-        backend: ${cfg.chatBackend}
+        backend: "${cfg.chatBackend}"
       agent:
-        model: ${cfg.agentModel}
+        model: "${cfg.agentModel}"
         max_tokens: ${toString cfg.agentMaxTokens}
       monitor:
         enabled: ${lib.boolToString cfg.monitorEnabled}
-        interval: ${cfg.monitorInterval}
+        interval: "${cfg.monitorInterval}"
       log:
-        level: ${cfg.logLevel}
-        format: ${cfg.logFormat}
+        level: "${cfg.logLevel}"
+        format: "${cfg.logFormat}"
     '';
 
     systemd.services.reel-life = {
