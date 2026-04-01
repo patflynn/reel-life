@@ -216,6 +216,47 @@ func TestLoadFileNotFound(t *testing.T) {
 	}
 }
 
+func TestLoadTelegramBackend(t *testing.T) {
+	yaml := `
+sonarr:
+  base_url: http://sonarr:8989
+  api_key: test-key
+chat:
+  backend: telegram
+  telegram_chat_id: 123456
+  telegram_allowed_users: [111, 222]
+`
+	path := writeTemp(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if cfg.Chat.Backend != "telegram" {
+		t.Errorf("Chat.Backend = %q, want %q", cfg.Chat.Backend, "telegram")
+	}
+	if cfg.Chat.TelegramChatID != 123456 {
+		t.Errorf("Chat.TelegramChatID = %d, want 123456", cfg.Chat.TelegramChatID)
+	}
+	if len(cfg.Chat.TelegramAllowedUsers) != 2 {
+		t.Errorf("Chat.TelegramAllowedUsers len = %d, want 2", len(cfg.Chat.TelegramAllowedUsers))
+	}
+}
+
+func TestLoadTelegramBackendNoWebhookRequired(t *testing.T) {
+	yaml := `
+sonarr:
+  base_url: http://sonarr:8989
+  api_key: test-key
+chat:
+  backend: telegram
+`
+	path := writeTemp(t, yaml)
+	_, err := Load(path)
+	if err != nil {
+		t.Fatalf("telegram backend should not require webhook_url, got: %v", err)
+	}
+}
+
 func writeTemp(t *testing.T, content string) string {
 	t.Helper()
 	dir := t.TempDir()

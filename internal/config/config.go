@@ -23,11 +23,13 @@ type SonarrConfig struct {
 }
 
 type ChatConfig struct {
-	Backend            string `yaml:"backend"`
-	WebhookURL         string `yaml:"webhook_url"`
-	ServiceAccountFile string `yaml:"service_account_file"`
-	Space              string `yaml:"space"`
-	ProjectNumber      string `yaml:"project_number"`
+	Backend            string  `yaml:"backend"`
+	WebhookURL         string  `yaml:"webhook_url"`
+	ServiceAccountFile string  `yaml:"service_account_file"`
+	Space              string  `yaml:"space"`
+	ProjectNumber      string  `yaml:"project_number"`
+	TelegramChatID     int64   `yaml:"telegram_chat_id"`
+	TelegramAllowedUsers []int64 `yaml:"telegram_allowed_users"`
 }
 
 type AgentConfig struct {
@@ -116,6 +118,10 @@ func validate(cfg *Config) error {
 	}
 	if cfg.Sonarr.APIKey == "" {
 		return fmt.Errorf("sonarr.api_key is required (set SONARR_API_KEY env var)")
+	}
+	// Telegram backend only needs the bot token (checked at startup via env var).
+	if cfg.Chat.Backend == "telegram" {
+		return nil
 	}
 	// Either webhook URL or service account + space must be configured.
 	if cfg.Chat.WebhookURL == "" && (cfg.Chat.ServiceAccountFile == "" || cfg.Chat.Space == "") {
