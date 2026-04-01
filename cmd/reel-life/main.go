@@ -56,7 +56,7 @@ func main() {
 		notifier = tg
 		telegramBot = tg
 		logger.Info("using Telegram notifier")
-	default:
+	case "googlechat", "":
 		// Google Chat: Chat API (app mode) or webhook (legacy).
 		if cfg.UseAppMode() {
 			saKey, err := os.ReadFile(cfg.Chat.ServiceAccountFile)
@@ -74,6 +74,9 @@ func main() {
 			notifier = chat.NewGoogleChat(cfg.Chat.WebhookURL, logger)
 			logger.Info("using Google Chat webhook notifier")
 		}
+	default:
+		fmt.Fprintf(os.Stderr, "error: unsupported chat backend: %q\n", cfg.Chat.Backend)
+		os.Exit(1)
 	}
 
 	anthropicKey := os.Getenv("ANTHROPIC_API_KEY")

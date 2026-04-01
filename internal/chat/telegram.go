@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -61,11 +62,12 @@ func NewTelegramWithBot(bot BotAPI, chatID int64, allowedUsers []int64, logger *
 }
 
 func (t *Telegram) Send(ctx context.Context, message string) error {
-	if t.chatID == 0 {
+	chatID := atomic.LoadInt64(&t.chatID)
+	if chatID == 0 {
 		return fmt.Errorf("telegram chat ID not configured (waiting for first message)")
 	}
 	for _, chunk := range splitMessage(message, telegramMaxMessageLength) {
-		msg := tgbotapi.NewMessage(t.chatID, chunk)
+		msg := tgbotapi.NewMessage(chatID, chunk)
 		if _, err := t.bot.Send(msg); err != nil {
 			return fmt.Errorf("send telegram message: %w", err)
 		}
@@ -75,7 +77,8 @@ func (t *Telegram) Send(ctx context.Context, message string) error {
 }
 
 func (t *Telegram) SendThread(ctx context.Context, message string, threadKey string) error {
-	if t.chatID == 0 {
+	chatID := atomic.LoadInt64(&t.chatID)
+	if chatID == 0 {
 		return fmt.Errorf("telegram chat ID not configured (waiting for first message)")
 	}
 
@@ -85,7 +88,7 @@ func (t *Telegram) SendThread(ctx context.Context, message string, threadKey str
 
 	chunks := splitMessage(message, telegramMaxMessageLength)
 	for _, chunk := range chunks {
-		msg := tgbotapi.NewMessage(t.chatID, chunk)
+		msg := tgbotapi.NewMessage(chatID, chunk)
 		if replyTo != 0 {
 			msg.ReplyToMessageID = replyTo
 		}
@@ -143,9 +146,8 @@ func (t *Telegram) handleUpdate(ctx context.Context, update tgbotapi.Update, pro
 	}
 
 	// Auto-capture chat ID from first incoming message.
-	if t.chatID == 0 {
-		t.chatID = msg.Chat.ID
-		t.logger.Info("auto-captured telegram chat ID", "chat_id", t.chatID)
+	if atomic.CompareAndSwapInt64(&t.chatID, 0, msg.Chat.ID) {
+		t.logger.Info("auto-captured telegram chat ID", "chat_id", msg.Chat.ID)
 	}
 
 	text := msg.Text
@@ -157,7 +159,9 @@ func (t *Telegram) handleUpdate(ctx context.Context, update tgbotapi.Update, pro
 			// Bare command like /start with no arguments.
 			reply := tgbotapi.NewMessage(msg.Chat.ID, "I'm your media curation assistant. Send me a message like \"search for Breaking Bad\" or \"what's downloading?\" to get started.")
 			reply.ReplyToMessageID = msg.MessageID
-			t.bot.Send(reply)
+			if _, err := t.bot.Send(reply); err != nil {
+				t.logger.Error("failed to send help message", "error", err)
+			}
 			return
 		}
 	}
@@ -173,7 +177,9 @@ func (t *Telegram) handleUpdate(ctx context.Context, update tgbotapi.Update, pro
 
 	// Send typing indicator.
 	typing := tgbotapi.NewChatAction(msg.Chat.ID, tgbotapi.ChatTyping)
-	t.bot.Request(typing)
+	if _, err := t.bot.Request(typing); err != nil {
+		t.logger.Warn("failed to send typing indicator", "error", err)
+	}
 
 	response, err := processor.Process(ctx, text)
 	if err != nil {
@@ -184,7 +190,9 @@ func (t *Telegram) handleUpdate(ctx context.Context, update tgbotapi.Update, pro
 	for _, chunk := range splitMessage(response, telegramMaxMessageLength) {
 		reply := tgbotapi.NewMessage(msg.Chat.ID, chunk)
 		reply.ReplyToMessageID = msg.MessageID
-		t.bot.Send(reply)
+		if _, err := t.bot.Send(reply); err != nil {
+			t.logger.Error("failed to send reply", "error", err)
+		}
 	}
 }
 
