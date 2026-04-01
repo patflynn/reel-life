@@ -117,6 +117,18 @@ in
       description = "Files containing environment variables (for secrets like API keys)";
     };
 
+    chatTelegramChatID = lib.mkOption {
+      type = lib.types.int;
+      default = 0;
+      description = "Telegram chat ID for proactive alerts, 0 for auto-capture";
+    };
+
+    chatTelegramAllowedUsers = lib.mkOption {
+      type = lib.types.listOf lib.types.int;
+      default = [ ];
+      description = "Telegram user IDs allowed to interact with the bot";
+    };
+
     restrictNetwork = lib.mkOption {
       type = lib.types.bool;
       default = false;
@@ -145,7 +157,10 @@ in
       sonarr:
         base_url: "${cfg.sonarrUrl}"
       chat:
-        backend: "${cfg.chatBackend}"
+        backend: "${cfg.chatBackend}"${lib.optionalString (cfg.chatBackend == "telegram") ''
+
+        telegram_chat_id: ${toString cfg.chatTelegramChatID}
+        telegram_allowed_users: [${lib.concatMapStringsSep ", " toString cfg.chatTelegramAllowedUsers}]''}
       agent:
         model: "${cfg.agentModel}"
         max_tokens: ${toString cfg.agentMaxTokens}

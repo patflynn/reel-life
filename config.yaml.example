@@ -9,6 +9,11 @@ chat:
   backend: googlechat
   # webhook_url: set GOOGLE_CHAT_WEBHOOK_URL env var
 
+  # Telegram backend (set backend: telegram to use)
+  # telegram_chat_id: 0          # 0 = auto-capture from first message
+  # telegram_allowed_users: []   # list of Telegram user IDs allowed to interact
+  # bot token: set TELEGRAM_BOT_TOKEN env var
+
 agent:
   model: claude-sonnet-4-5-20250929
   max_tokens: 4096

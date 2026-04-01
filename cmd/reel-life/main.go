@@ -38,23 +38,42 @@ func main() {
 
 	sonarrClient := sonarr.NewClient(cfg.Sonarr.BaseURL, cfg.Sonarr.APIKey)
 
-	// Select notifier: Chat API (app mode) or webhook (legacy).
+	// Select notifier based on backend configuration.
 	var notifier chat.Notifier
-	if cfg.UseAppMode() {
-		saKey, err := os.ReadFile(cfg.Chat.ServiceAccountFile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error reading service account file: %v\n", err)
+	var telegramBot *chat.Telegram
+	switch cfg.Chat.Backend {
+	case "telegram":
+		tgToken := os.Getenv("TELEGRAM_BOT_TOKEN")
+		if tgToken == "" {
+			fmt.Fprintf(os.Stderr, "error: TELEGRAM_BOT_TOKEN environment variable is required for telegram backend\n")
 			os.Exit(1)
 		}
-		notifier, err = chat.NewGoogleChatApp(saKey, cfg.Chat.Space, logger)
+		tg, err := chat.NewTelegram(tgToken, cfg.Chat.TelegramChatID, cfg.Chat.TelegramAllowedUsers, logger)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "error creating Chat API client: %v\n", err)
+			fmt.Fprintf(os.Stderr, "error creating Telegram client: %v\n", err)
 			os.Exit(1)
 		}
-		logger.Info("using Google Chat App (API) notifier", "space", cfg.Chat.Space)
-	} else {
-		notifier = chat.NewGoogleChat(cfg.Chat.WebhookURL, logger)
-		logger.Info("using Google Chat webhook notifier")
+		notifier = tg
+		telegramBot = tg
+		logger.Info("using Telegram notifier")
+	default:
+		// Google Chat: Chat API (app mode) or webhook (legacy).
+		if cfg.UseAppMode() {
+			saKey, err := os.ReadFile(cfg.Chat.ServiceAccountFile)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "error reading service account file: %v\n", err)
+				os.Exit(1)
+			}
+			notifier, err = chat.NewGoogleChatApp(saKey, cfg.Chat.Space, logger)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "error creating Chat API client: %v\n", err)
+				os.Exit(1)
+			}
+			logger.Info("using Google Chat App (API) notifier", "space", cfg.Chat.Space)
+		} else {
+			notifier = chat.NewGoogleChat(cfg.Chat.WebhookURL, logger)
+			logger.Info("using Google Chat webhook notifier")
+		}
 	}
 
 	anthropicKey := os.Getenv("ANTHROPIC_API_KEY")
@@ -94,6 +113,16 @@ func main() {
 			}
 		}()
 		logger.Info("monitor started", "interval", cfg.Monitor.Interval)
+	}
+
+	// Start Telegram listener if using Telegram backend.
+	if telegramBot != nil {
+		go func() {
+			if err := telegramBot.Listen(ctx, agentInstance); err != nil && ctx.Err() == nil {
+				logger.Error("telegram listener error", "error", err)
+			}
+		}()
+		logger.Info("telegram listener started")
 	}
 
 	// Health endpoint for container probes

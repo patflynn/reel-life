@@ -1,6 +1,6 @@
 # reel-life
 
-An AI-powered chatops agent for media curation and quality control. reel-life connects Claude to your media management stack (starting with Sonarr) and communicates through Google Chat. It can respond to natural language requests like "search for Breaking Bad" or "what's in the download queue?", and it proactively monitors your services for health issues — alerting you when something goes wrong.
+An AI-powered chatops agent for media curation and quality control. reel-life connects Claude to your media management stack (starting with Sonarr) and communicates through Telegram or Google Chat. It can respond to natural language requests like "search for Breaking Bad" or "what's in the download queue?", and it proactively monitors your services for health issues — alerting you when something goes wrong.
 
 Claude operates as a constrained agent: it can only call a defined set of media API tools. No filesystem access, no shell commands, no arbitrary network calls. It reasons about what to do, calls the right Sonarr endpoint, and reports back.
 
@@ -28,7 +28,7 @@ The **agent** handles reactive requests — a user asks something in Google Chat
 - **Reactive**: Natural language requests — "search for Breaking Bad", "what's downloading?", "check system health" *(agent logic is implemented; bidirectional Google Chat webhook is [on the roadmap](docs/google-chat-setup.md#bidirectional-webhooks-not-yet-implemented))*
 - **Proactive**: Automatic alerts for health issues, failed downloads, and indexer problems *(active now via outgoing webhooks)*
 - **Constrained**: The AI agent can ONLY call defined media API tools — no filesystem, no shell, no arbitrary network
-- **Pluggable**: Chat backend interface supports additional backends (Slack, Discord, etc.)
+- **Pluggable**: Multiple chat backends — Telegram (bidirectional, recommended for personal use) and Google Chat (webhook or API)
 
 ## Supported services
 
@@ -56,12 +56,24 @@ The Claude agent has access to these Sonarr tools:
 
 - **Anthropic API key** — [console.anthropic.com](https://console.anthropic.com/)
 - **Running Sonarr instance** with API access enabled (v3 API)
-- **Google Chat space** with an incoming webhook URL
+- **Telegram bot** (via [@BotFather](https://t.me/botfather)) or **Google Chat space** with an incoming webhook URL
 - **For NixOS deployment**: NixOS with flakes enabled, [agenix](https://github.com/ryantm/agenix) for secrets management
 
 ## Quick start
 
 There are three ways to deploy reel-life. See the [setup guide](docs/setup-guide.md) for detailed instructions.
+
+### Telegram (recommended for personal use)
+
+```bash
+go build ./cmd/reel-life
+export ANTHROPIC_API_KEY=your-key
+export SONARR_API_KEY=your-key
+export TELEGRAM_BOT_TOKEN=your-bot-token
+./reel-life -config config.yaml
+```
+
+Set `chat.backend: telegram` in your config and add your Telegram user ID to `telegram_allowed_users`. See the [Telegram setup guide](docs/telegram-setup.md) for details.
 
 ### NixOS service (recommended for NixOS hosts)
 
@@ -121,13 +133,15 @@ Secrets are always provided via environment variables — never put API keys in 
 |----------|-------------|
 | `ANTHROPIC_API_KEY` | Claude API key (required) |
 | `SONARR_API_KEY` | Sonarr API key (required) |
-| `GOOGLE_CHAT_WEBHOOK_URL` | Google Chat webhook URL (required) |
+| `GOOGLE_CHAT_WEBHOOK_URL` | Google Chat webhook URL (required for googlechat backend) |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token (required for telegram backend) |
 
 The `SONARR_URL` environment variable can also override `sonarr.base_url` from the config file.
 
 ## Documentation
 
 - [Setup guide](docs/setup-guide.md) — Detailed deployment instructions for all three methods
+- [Telegram setup](docs/telegram-setup.md) — Setting up the Telegram bot for personal use
 - [Google Chat setup](docs/google-chat-setup.md) — Creating and configuring the Google Chat webhook
 - [Sonarr setup](docs/sonarr-setup.md) — Connecting reel-life to your Sonarr instance
 - [Troubleshooting](docs/troubleshooting.md) — Common issues and how to fix them
