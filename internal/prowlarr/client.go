@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 // Client defines the operations available against a Prowlarr instance.
@@ -30,7 +31,7 @@ func NewClient(baseURL, apiKey string) *HTTPClient {
 	return &HTTPClient{
 		baseURL:    baseURL,
 		apiKey:     apiKey,
-		httpClient: &http.Client{},
+		httpClient: &http.Client{Timeout: 10 * time.Second},
 	}
 }
 
@@ -93,8 +94,11 @@ func (c *HTTPClient) Search(ctx context.Context, query string) ([]SearchResult, 
 }
 
 func (c *HTTPClient) url(path string) *url.URL {
-	u, _ := url.Parse(c.baseURL + path)
-	return u
+	u, err := url.Parse(c.baseURL)
+	if err != nil {
+		return nil
+	}
+	return u.JoinPath(path)
 }
 
 func (c *HTTPClient) get(ctx context.Context, rawURL string, out any) error {

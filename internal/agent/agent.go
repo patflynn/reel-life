@@ -257,83 +257,86 @@ func (a *Agent) dispatchTool(ctx context.Context, name string, rawInput json.Raw
 			result = map[string]string{"status": "removed"}
 		}
 
-	case "search_movies":
-		var input searchMoviesInput
-		if err := json.Unmarshal(rawInput, &input); err != nil {
-			return jsonError("invalid input: " + err.Error()), true
+	case "search_movies", "add_movie", "get_movie_queue", "get_movie_history", "check_movie_health", "remove_failed_movie":
+		if a.radarr == nil {
+			return jsonError("Radarr integration is not configured"), true
 		}
-		result, err = a.radarr.Search(ctx, input.Term)
-
-	case "add_movie":
-		var input addMovieInput
-		if err := json.Unmarshal(rawInput, &input); err != nil {
-			return jsonError("invalid input: " + err.Error()), true
-		}
-		minAvail := input.MinimumAvailability
-		if minAvail == "" {
-			minAvail = "released"
-		}
-		result, err = a.radarr.Add(ctx, radarr.AddMovieRequest{
-			Title:               input.Title,
-			TMDBID:              input.TMDBID,
-			QualityProfileID:    input.QualityProfileID,
-			RootFolderPath:      input.RootFolderPath,
-			Monitored:           true,
-			MinimumAvailability: minAvail,
-		})
-
-	case "get_movie_queue":
-		result, err = a.radarr.Queue(ctx)
-
-	case "get_movie_history":
-		var input getMovieHistoryInput
-		if err := json.Unmarshal(rawInput, &input); err != nil {
-			return jsonError("invalid input: " + err.Error()), true
-		}
-		pageSize := input.PageSize
-		if pageSize == 0 {
-			pageSize = 20
-		}
-		result, err = a.radarr.History(ctx, pageSize)
-
-	case "check_movie_health":
-		result, err = a.radarr.Health(ctx)
-
-	case "remove_failed_movie":
-		var input removeFailedMovieInput
-		if err := json.Unmarshal(rawInput, &input); err != nil {
-			return jsonError("invalid input: " + err.Error()), true
-		}
-		err = a.radarr.RemoveFailed(ctx, input.ID, input.Blocklist)
-		if err == nil {
-			result = map[string]string{"status": "removed"}
-		}
-
-	case "list_indexers":
-		result, err = a.prowlarr.ListIndexers(ctx)
-
-	case "test_indexer":
-		var input testIndexerInput
-		if err := json.Unmarshal(rawInput, &input); err != nil {
-			return jsonError("invalid input: " + err.Error()), true
-		}
-		err = a.prowlarr.TestIndexer(ctx, input.ID)
-		if err == nil {
-			result = map[string]string{"status": "ok"}
+		switch name {
+		case "search_movies":
+			var input searchMoviesInput
+			if err := json.Unmarshal(rawInput, &input); err != nil {
+				return jsonError("invalid input: " + err.Error()), true
+			}
+			result, err = a.radarr.Search(ctx, input.Term)
+		case "add_movie":
+			var input addMovieInput
+			if err := json.Unmarshal(rawInput, &input); err != nil {
+				return jsonError("invalid input: " + err.Error()), true
+			}
+			minAvail := input.MinimumAvailability
+			if minAvail == "" {
+				minAvail = "released"
+			}
+			result, err = a.radarr.Add(ctx, radarr.AddMovieRequest{
+				Title:               input.Title,
+				TMDBID:              input.TMDBID,
+				QualityProfileID:    input.QualityProfileID,
+				RootFolderPath:      input.RootFolderPath,
+				Monitored:           true,
+				MinimumAvailability: minAvail,
+			})
+		case "get_movie_queue":
+			result, err = a.radarr.Queue(ctx)
+		case "get_movie_history":
+			var input getMovieHistoryInput
+			if err := json.Unmarshal(rawInput, &input); err != nil {
+				return jsonError("invalid input: " + err.Error()), true
+			}
+			pageSize := input.PageSize
+			if pageSize == 0 {
+				pageSize = 20
+			}
+			result, err = a.radarr.History(ctx, pageSize)
+		case "check_movie_health":
+			result, err = a.radarr.Health(ctx)
+		case "remove_failed_movie":
+			var input removeFailedMovieInput
+			if err := json.Unmarshal(rawInput, &input); err != nil {
+				return jsonError("invalid input: " + err.Error()), true
+			}
+			err = a.radarr.RemoveFailed(ctx, input.ID, input.Blocklist)
+			if err == nil {
+				result = map[string]string{"status": "removed"}
+			}
 		}
 
-	case "get_indexer_stats":
-		result, err = a.prowlarr.GetIndexerStats(ctx)
-
-	case "check_indexer_health":
-		result, err = a.prowlarr.CheckHealth(ctx)
-
-	case "search_indexers":
-		var input searchIndexersInput
-		if err := json.Unmarshal(rawInput, &input); err != nil {
-			return jsonError("invalid input: " + err.Error()), true
+	case "list_indexers", "test_indexer", "get_indexer_stats", "check_indexer_health", "search_indexers":
+		if a.prowlarr == nil {
+			return jsonError("Prowlarr integration is not configured"), true
 		}
-		result, err = a.prowlarr.Search(ctx, input.Query)
+		switch name {
+		case "list_indexers":
+			result, err = a.prowlarr.ListIndexers(ctx)
+		case "test_indexer":
+			var input testIndexerInput
+			if err := json.Unmarshal(rawInput, &input); err != nil {
+				return jsonError("invalid input: " + err.Error()), true
+			}
+			err = a.prowlarr.TestIndexer(ctx, input.ID)
+			if err == nil {
+				result = map[string]string{"status": "ok"}
+			}
+		case "get_indexer_stats":
+			result, err = a.prowlarr.GetIndexerStats(ctx)
+		case "check_indexer_health":
+			result, err = a.prowlarr.CheckHealth(ctx)
+		case "search_indexers":
+			var input searchIndexersInput
+			if err := json.Unmarshal(rawInput, &input); err != nil {
+				return jsonError("invalid input: " + err.Error()), true
+			}
+			result, err = a.prowlarr.Search(ctx, input.Query)
+		}
 
 	default:
 		return jsonError("unknown tool: " + name), true
