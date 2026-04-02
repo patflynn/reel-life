@@ -10,6 +10,7 @@ import (
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
+	"github.com/patflynn/reel-life/internal/prowlarr"
 	"github.com/patflynn/reel-life/internal/radarr"
 	"github.com/patflynn/reel-life/internal/sonarr"
 )
@@ -23,6 +24,7 @@ Your capabilities:
 - Review download history for recent activity
 - Monitor system health and report any issues
 - Remove failed downloads and manage the blocklist
+- Manage indexers via Prowlarr: list, test, check stats and health, search across indexers
 
 Guidelines:
 - When searching, present results concisely with title, year, and a brief description
@@ -33,40 +35,43 @@ Guidelines:
 
 const maxToolRounds = 10
 
-// Agent handles natural language interactions using Claude with Sonarr and Radarr tools.
+// Agent handles natural language interactions using Claude with Sonarr, Radarr, and Prowlarr tools.
 type Agent struct {
-	client  *anthropic.Client
-	sonarr  sonarr.Client
-	radarr  radarr.Client
-	model   string
-	maxTok  int64
-	logger  *slog.Logger
-	limiter *RateLimiter
+	client   *anthropic.Client
+	sonarr   sonarr.Client
+	radarr   radarr.Client
+	prowlarr prowlarr.Client
+	model    string
+	maxTok   int64
+	logger   *slog.Logger
+	limiter  *RateLimiter
 }
 
-func New(apiKey string, sonarrClient sonarr.Client, radarrClient radarr.Client, model string, maxTokens int, logger *slog.Logger, limiter *RateLimiter) *Agent {
+func New(apiKey string, sonarrClient sonarr.Client, radarrClient radarr.Client, prowlarrClient prowlarr.Client, model string, maxTokens int, logger *slog.Logger, limiter *RateLimiter) *Agent {
 	client := anthropic.NewClient(option.WithAPIKey(apiKey))
 	return &Agent{
-		client:  &client,
-		sonarr:  sonarrClient,
-		radarr:  radarrClient,
-		model:   model,
-		maxTok:  int64(maxTokens),
-		logger:  logger,
-		limiter: limiter,
+		client:   &client,
+		sonarr:   sonarrClient,
+		radarr:   radarrClient,
+		prowlarr: prowlarrClient,
+		model:    model,
+		maxTok:   int64(maxTokens),
+		logger:   logger,
+		limiter:  limiter,
 	}
 }
 
 // NewWithClient creates an Agent with a pre-configured Anthropic client (for testing).
-func NewWithClient(client *anthropic.Client, sonarrClient sonarr.Client, radarrClient radarr.Client, model string, maxTokens int, logger *slog.Logger, limiter *RateLimiter) *Agent {
+func NewWithClient(client *anthropic.Client, sonarrClient sonarr.Client, radarrClient radarr.Client, prowlarrClient prowlarr.Client, model string, maxTokens int, logger *slog.Logger, limiter *RateLimiter) *Agent {
 	return &Agent{
-		client:  client,
-		sonarr:  sonarrClient,
-		radarr:  radarrClient,
-		model:   model,
-		maxTok:  int64(maxTokens),
-		logger:  logger,
-		limiter: limiter,
+		client:   client,
+		sonarr:   sonarrClient,
+		radarr:   radarrClient,
+		prowlarr: prowlarrClient,
+		model:    model,
+		maxTok:   int64(maxTokens),
+		logger:   logger,
+		limiter:  limiter,
 	}
 }
 
@@ -303,6 +308,32 @@ func (a *Agent) dispatchTool(ctx context.Context, name string, rawInput json.Raw
 		if err == nil {
 			result = map[string]string{"status": "removed"}
 		}
+
+	case "list_indexers":
+		result, err = a.prowlarr.ListIndexers(ctx)
+
+	case "test_indexer":
+		var input testIndexerInput
+		if err := json.Unmarshal(rawInput, &input); err != nil {
+			return jsonError("invalid input: " + err.Error()), true
+		}
+		err = a.prowlarr.TestIndexer(ctx, input.ID)
+		if err == nil {
+			result = map[string]string{"status": "ok"}
+		}
+
+	case "get_indexer_stats":
+		result, err = a.prowlarr.GetIndexerStats(ctx)
+
+	case "check_indexer_health":
+		result, err = a.prowlarr.CheckHealth(ctx)
+
+	case "search_indexers":
+		var input searchIndexersInput
+		if err := json.Unmarshal(rawInput, &input); err != nil {
+			return jsonError("invalid input: " + err.Error()), true
+		}
+		result, err = a.prowlarr.Search(ctx, input.Query)
 
 	default:
 		return jsonError("unknown tool: " + name), true

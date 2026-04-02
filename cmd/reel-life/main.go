@@ -14,6 +14,7 @@ import (
 	"github.com/patflynn/reel-life/internal/chat"
 	"github.com/patflynn/reel-life/internal/config"
 	"github.com/patflynn/reel-life/internal/monitor"
+	"github.com/patflynn/reel-life/internal/prowlarr"
 	"github.com/patflynn/reel-life/internal/radarr"
 	"github.com/patflynn/reel-life/internal/sonarr"
 )
@@ -43,6 +44,17 @@ func main() {
 	if cfg.Radarr.BaseURL != "" {
 		radarrClient = radarr.NewClient(cfg.Radarr.BaseURL, cfg.Radarr.APIKey)
 		logger.Info("radarr client configured", "url", cfg.Radarr.BaseURL)
+	}
+
+	// Build Prowlarr client (optional — use defaults if not configured).
+	prowlarrURL := cfg.Prowlarr.BaseURL
+	if prowlarrURL == "" {
+		prowlarrURL = "http://localhost:9696"
+	}
+	var prowlarrClient prowlarr.Client
+	if cfg.Prowlarr.APIKey != "" {
+		prowlarrClient = prowlarr.NewClient(prowlarrURL, cfg.Prowlarr.APIKey)
+		logger.Info("prowlarr integration enabled", "url", prowlarrURL)
 	}
 
 	// Select notifier based on backend configuration.
@@ -109,7 +121,7 @@ func main() {
 	}
 	limiter = agent.NewRateLimiter(maxPerMin, maxPerReq, maxDestructive)
 
-	agentInstance := agent.New(anthropicKey, sonarrClient, radarrClient, cfg.Agent.Model, cfg.Agent.MaxTokens, logger, limiter)
+	agentInstance := agent.New(anthropicKey, sonarrClient, radarrClient, prowlarrClient, cfg.Agent.Model, cfg.Agent.MaxTokens, logger, limiter)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()

@@ -10,13 +10,14 @@ import (
 )
 
 type Config struct {
-	Sonarr  SonarrConfig  `yaml:"sonarr"`
-	Radarr  RadarrConfig  `yaml:"radarr"`
-	Chat    ChatConfig    `yaml:"chat"`
-	Agent   AgentConfig   `yaml:"agent"`
-	Monitor MonitorConfig `yaml:"monitor"`
-	Log     LogConfig     `yaml:"log"`
-	Server  ServerConfig  `yaml:"server"`
+	Sonarr   SonarrConfig   `yaml:"sonarr"`
+	Radarr   RadarrConfig   `yaml:"radarr"`
+	Prowlarr ProwlarrConfig `yaml:"prowlarr"`
+	Chat     ChatConfig     `yaml:"chat"`
+	Agent    AgentConfig    `yaml:"agent"`
+	Monitor  MonitorConfig  `yaml:"monitor"`
+	Log      LogConfig      `yaml:"log"`
+	Server   ServerConfig   `yaml:"server"`
 }
 
 type ServerConfig struct {
@@ -33,13 +34,18 @@ type RadarrConfig struct {
 	APIKey  string `yaml:"api_key"`
 }
 
+type ProwlarrConfig struct {
+	BaseURL string `yaml:"base_url"`
+	APIKey  string `yaml:"api_key"`
+}
+
 type ChatConfig struct {
-	Backend            string  `yaml:"backend"`
-	WebhookURL         string  `yaml:"webhook_url"`
-	ServiceAccountFile string  `yaml:"service_account_file"`
-	Space              string  `yaml:"space"`
-	ProjectNumber      string  `yaml:"project_number"`
-	TelegramChatID     int64   `yaml:"telegram_chat_id"`
+	Backend              string  `yaml:"backend"`
+	WebhookURL           string  `yaml:"webhook_url"`
+	ServiceAccountFile   string  `yaml:"service_account_file"`
+	Space                string  `yaml:"space"`
+	ProjectNumber        string  `yaml:"project_number"`
+	TelegramChatID       int64   `yaml:"telegram_chat_id"`
 	TelegramAllowedUsers []int64 `yaml:"telegram_allowed_users"`
 }
 
@@ -114,6 +120,12 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("RADARR_URL"); v != "" {
 		cfg.Radarr.BaseURL = v
+	}
+	if v := os.Getenv("PROWLARR_API_KEY"); v != "" {
+		cfg.Prowlarr.APIKey = v
+	}
+	if v := os.Getenv("PROWLARR_URL"); v != "" {
+		cfg.Prowlarr.BaseURL = v
 	}
 	if v := os.Getenv("GOOGLE_CHAT_WEBHOOK_URL"); v != "" {
 		cfg.Chat.WebhookURL = v
