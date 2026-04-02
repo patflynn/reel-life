@@ -10,14 +10,15 @@ import (
 )
 
 type Config struct {
-	Sonarr   SonarrConfig   `yaml:"sonarr"`
-	Radarr   RadarrConfig   `yaml:"radarr"`
-	Prowlarr ProwlarrConfig `yaml:"prowlarr"`
-	Chat     ChatConfig     `yaml:"chat"`
-	Agent    AgentConfig    `yaml:"agent"`
-	Monitor  MonitorConfig  `yaml:"monitor"`
-	Log      LogConfig      `yaml:"log"`
-	Server   ServerConfig   `yaml:"server"`
+	Sonarr    SonarrConfig    `yaml:"sonarr"`
+	Radarr    RadarrConfig    `yaml:"radarr"`
+	Prowlarr  ProwlarrConfig  `yaml:"prowlarr"`
+	Overseerr OverseerrConfig `yaml:"overseerr"`
+	Chat      ChatConfig      `yaml:"chat"`
+	Agent     AgentConfig     `yaml:"agent"`
+	Monitor   MonitorConfig   `yaml:"monitor"`
+	Log       LogConfig       `yaml:"log"`
+	Server    ServerConfig    `yaml:"server"`
 }
 
 type ServerConfig struct {
@@ -35,6 +36,11 @@ type RadarrConfig struct {
 }
 
 type ProwlarrConfig struct {
+	BaseURL string `yaml:"base_url"`
+	APIKey  string `yaml:"api_key"`
+}
+
+type OverseerrConfig struct {
 	BaseURL string `yaml:"base_url"`
 	APIKey  string `yaml:"api_key"`
 }
@@ -126,6 +132,12 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("PROWLARR_URL"); v != "" {
 		cfg.Prowlarr.BaseURL = v
+	}
+	if v := os.Getenv("OVERSEERR_API_KEY"); v != "" {
+		cfg.Overseerr.APIKey = v
+	}
+	if v := os.Getenv("OVERSEERR_URL"); v != "" {
+		cfg.Overseerr.BaseURL = v
 	}
 	if v := os.Getenv("GOOGLE_CHAT_WEBHOOK_URL"); v != "" {
 		cfg.Chat.WebhookURL = v

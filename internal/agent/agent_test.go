@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"testing"
 
+	"github.com/patflynn/reel-life/internal/overseerr"
 	"github.com/patflynn/reel-life/internal/prowlarr"
 	"github.com/patflynn/reel-life/internal/radarr"
 	"github.com/patflynn/reel-life/internal/sonarr"
@@ -89,8 +90,31 @@ func (m *mockProwlarr) Search(_ context.Context, _ string) ([]prowlarr.SearchRes
 	return m.searchResult, nil
 }
 
+// mockOverseerr implements overseerr.Client for agent testing.
+type mockOverseerr struct {
+	requests     *overseerr.RequestPage
+	requestCount *overseerr.RequestCount
+	searchResult *overseerr.SearchResults
+}
+
+func (m *mockOverseerr) ListRequests(_ context.Context, _ string, _, _ int) (*overseerr.RequestPage, error) {
+	return m.requests, nil
+}
+func (m *mockOverseerr) ApproveRequest(_ context.Context, _ int) error {
+	return nil
+}
+func (m *mockOverseerr) DeclineRequest(_ context.Context, _ int) error {
+	return nil
+}
+func (m *mockOverseerr) GetRequestCount(_ context.Context) (*overseerr.RequestCount, error) {
+	return m.requestCount, nil
+}
+func (m *mockOverseerr) SearchMedia(_ context.Context, _ string, _ int) (*overseerr.SearchResults, error) {
+	return m.searchResult, nil
+}
+
 func newTestAgent() *Agent {
-	return &Agent{sonarr: &mockSonarr{}, radarr: &mockRadarr{}, prowlarr: &mockProwlarr{}, logger: slog.Default()}
+	return &Agent{sonarr: &mockSonarr{}, radarr: &mockRadarr{}, prowlarr: &mockProwlarr{}, overseerr: &mockOverseerr{}, logger: slog.Default()}
 }
 
 func TestDispatchSearchSeries(t *testing.T) {
@@ -158,7 +182,7 @@ func TestDispatchRemoveFailed(t *testing.T) {
 }
 
 func TestDispatchUnknownTool(t *testing.T) {
-	a := &Agent{sonarr: &mockSonarr{}, radarr: &mockRadarr{}, prowlarr: &mockProwlarr{}}
+	a := &Agent{sonarr: &mockSonarr{}, radarr: &mockRadarr{}, prowlarr: &mockProwlarr{}, overseerr: &mockOverseerr{}}
 
 	result, isErr := a.dispatchTool(context.Background(), "nonexistent", json.RawMessage("{}"))
 	if !isErr {
@@ -498,6 +522,129 @@ func TestDispatchSearchIndexers(t *testing.T) {
 		t.Fatalf("unmarshal result: %v", err)
 	}
 	if len(results) != 1 || results[0].Title != "Breaking.Bad.S01E01" {
+		t.Errorf("unexpected result: %s", result)
+	}
+}
+
+func TestDispatchOverseerrNotConfigured(t *testing.T) {
+	a := &Agent{sonarr: &mockSonarr{}, radarr: &mockRadarr{}, prowlarr: &mockProwlarr{}}
+
+	for _, tool := range []string{"list_requests", "approve_request", "decline_request", "get_request_count", "search_media"} {
+		result, isErr := a.dispatchTool(context.Background(), tool, json.RawMessage("{}"))
+		if !isErr {
+			t.Errorf("%s: expected error when overseerr not configured", tool)
+		}
+		if result == "" {
+			t.Errorf("%s: expected error message", tool)
+		}
+	}
+}
+
+func TestDispatchListRequests(t *testing.T) {
+	mock := &mockOverseerr{
+		requests: &overseerr.RequestPage{
+			Results: []overseerr.Request{
+				{ID: 1, Status: 1, Type: "movie"},
+			},
+		},
+	}
+	a := newTestAgent()
+	a.overseerr = mock
+
+	input, _ := json.Marshal(listRequestsInput{Filter: "all", Take: 10})
+	result, isErr := a.dispatchTool(context.Background(), "list_requests", input)
+	if isErr {
+		t.Fatalf("unexpected error: %s", result)
+	}
+
+	var page overseerr.RequestPage
+	if err := json.Unmarshal([]byte(result), &page); err != nil {
+		t.Fatalf("unmarshal result: %v", err)
+	}
+	if len(page.Results) != 1 {
+		t.Errorf("expected 1 request, got %d", len(page.Results))
+	}
+}
+
+func TestDispatchApproveRequest(t *testing.T) {
+	a := newTestAgent()
+
+	input, _ := json.Marshal(approveRequestInput{ID: 1})
+	result, isErr := a.dispatchTool(context.Background(), "approve_request", input)
+	if isErr {
+		t.Fatalf("unexpected error: %s", result)
+	}
+
+	var status map[string]string
+	json.Unmarshal([]byte(result), &status)
+	if status["status"] != "approved" {
+		t.Errorf("expected status=approved, got %s", result)
+	}
+}
+
+func TestDispatchDeclineRequest(t *testing.T) {
+	a := newTestAgent()
+
+	input, _ := json.Marshal(declineRequestInput{ID: 1})
+	result, isErr := a.dispatchTool(context.Background(), "decline_request", input)
+	if isErr {
+		t.Fatalf("unexpected error: %s", result)
+	}
+
+	var status map[string]string
+	json.Unmarshal([]byte(result), &status)
+	if status["status"] != "declined" {
+		t.Errorf("expected status=declined, got %s", result)
+	}
+}
+
+func TestDispatchGetRequestCount(t *testing.T) {
+	mock := &mockOverseerr{
+		requestCount: &overseerr.RequestCount{
+			Pending: 5, Approved: 10, Declined: 2, Total: 17,
+		},
+	}
+	a := newTestAgent()
+	a.overseerr = mock
+
+	input, _ := json.Marshal(struct{}{})
+	result, isErr := a.dispatchTool(context.Background(), "get_request_count", input)
+	if isErr {
+		t.Fatalf("unexpected error: %s", result)
+	}
+
+	var count overseerr.RequestCount
+	if err := json.Unmarshal([]byte(result), &count); err != nil {
+		t.Fatalf("unmarshal result: %v", err)
+	}
+	if count.Total != 17 {
+		t.Errorf("expected total=17, got %d", count.Total)
+	}
+}
+
+func TestDispatchSearchMedia(t *testing.T) {
+	mock := &mockOverseerr{
+		searchResult: &overseerr.SearchResults{
+			TotalResults: 1,
+			Results: []overseerr.SearchResult{
+				{ID: 123, Title: "Inception", MediaType: "movie"},
+			},
+		},
+	}
+	a := newTestAgent()
+	a.overseerr = mock
+
+	input, _ := json.Marshal(searchMediaInput{Query: "inception"})
+	result, isErr := a.dispatchTool(context.Background(), "search_media", input)
+	if isErr {
+		t.Fatalf("unexpected error: %s", result)
+	}
+
+	var results overseerr.SearchResults
+	if err := json.Unmarshal([]byte(result), &results); err != nil {
+		t.Fatalf("unmarshal result: %v", err)
+	}
+	if results.TotalResults != 1 || results.Results[0].Title != "Inception" {
 		t.Errorf("unexpected result: %s", result)
 	}
 }

@@ -10,12 +10,13 @@ import (
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
+	"github.com/patflynn/reel-life/internal/overseerr"
 	"github.com/patflynn/reel-life/internal/prowlarr"
 	"github.com/patflynn/reel-life/internal/radarr"
 	"github.com/patflynn/reel-life/internal/sonarr"
 )
 
-const systemPrompt = `You are a media curation assistant for a home media server. You help users manage their TV series library through Sonarr and their movie library through Radarr.
+const systemPrompt = `You are a media curation assistant for a home media server. You help users manage their TV series library through Sonarr, their movie library through Radarr, and handle media requests through Overseerr.
 
 Your capabilities:
 - Search for TV series and movies, and provide concise summaries of results
@@ -25,53 +26,59 @@ Your capabilities:
 - Monitor system health and report any issues
 - Remove failed downloads and manage the blocklist
 - Manage indexers via Prowlarr: list, test, check stats and health, search across indexers
+- List, approve, and decline media requests from Overseerr
+- Search for movies and TV shows in Overseerr's media database
+- Get request statistics (pending, approved, declined counts)
 
 Guidelines:
 - When searching, present results concisely with title, year, and a brief description
-- Always confirm with the user before adding a new series or movie
+- Always confirm with the user before adding a new series or movie, or approving/declining requests
 - When reporting health issues, clearly explain what each issue means and suggest fixes
 - Be direct and helpful — avoid unnecessary pleasantries
 - Only use the tools provided — do not make up information`
 
 const maxToolRounds = 10
 
-// Agent handles natural language interactions using Claude with Sonarr, Radarr, and Prowlarr tools.
+// Agent handles natural language interactions using Claude with Sonarr, Radarr, Prowlarr, and Overseerr tools.
 type Agent struct {
-	client   *anthropic.Client
-	sonarr   sonarr.Client
-	radarr   radarr.Client
-	prowlarr prowlarr.Client
-	model    string
-	maxTok   int64
-	logger   *slog.Logger
-	limiter  *RateLimiter
+	client    *anthropic.Client
+	sonarr    sonarr.Client
+	radarr    radarr.Client
+	prowlarr  prowlarr.Client
+	overseerr overseerr.Client
+	model     string
+	maxTok    int64
+	logger    *slog.Logger
+	limiter   *RateLimiter
 }
 
-func New(apiKey string, sonarrClient sonarr.Client, radarrClient radarr.Client, prowlarrClient prowlarr.Client, model string, maxTokens int, logger *slog.Logger, limiter *RateLimiter) *Agent {
+func New(apiKey string, sonarrClient sonarr.Client, radarrClient radarr.Client, prowlarrClient prowlarr.Client, overseerrClient overseerr.Client, model string, maxTokens int, logger *slog.Logger, limiter *RateLimiter) *Agent {
 	client := anthropic.NewClient(option.WithAPIKey(apiKey))
 	return &Agent{
-		client:   &client,
-		sonarr:   sonarrClient,
-		radarr:   radarrClient,
-		prowlarr: prowlarrClient,
-		model:    model,
-		maxTok:   int64(maxTokens),
-		logger:   logger,
-		limiter:  limiter,
+		client:    &client,
+		sonarr:    sonarrClient,
+		radarr:    radarrClient,
+		prowlarr:  prowlarrClient,
+		overseerr: overseerrClient,
+		model:     model,
+		maxTok:    int64(maxTokens),
+		logger:    logger,
+		limiter:   limiter,
 	}
 }
 
 // NewWithClient creates an Agent with a pre-configured Anthropic client (for testing).
-func NewWithClient(client *anthropic.Client, sonarrClient sonarr.Client, radarrClient radarr.Client, prowlarrClient prowlarr.Client, model string, maxTokens int, logger *slog.Logger, limiter *RateLimiter) *Agent {
+func NewWithClient(client *anthropic.Client, sonarrClient sonarr.Client, radarrClient radarr.Client, prowlarrClient prowlarr.Client, overseerrClient overseerr.Client, model string, maxTokens int, logger *slog.Logger, limiter *RateLimiter) *Agent {
 	return &Agent{
-		client:   client,
-		sonarr:   sonarrClient,
-		radarr:   radarrClient,
-		prowlarr: prowlarrClient,
-		model:    model,
-		maxTok:   int64(maxTokens),
-		logger:   logger,
-		limiter:  limiter,
+		client:    client,
+		sonarr:    sonarrClient,
+		radarr:    radarrClient,
+		prowlarr:  prowlarrClient,
+		overseerr: overseerrClient,
+		model:     model,
+		maxTok:    int64(maxTokens),
+		logger:    logger,
+		limiter:   limiter,
 	}
 }
 
@@ -336,6 +343,53 @@ func (a *Agent) dispatchTool(ctx context.Context, name string, rawInput json.Raw
 				return jsonError("invalid input: " + err.Error()), true
 			}
 			result, err = a.prowlarr.Search(ctx, input.Query)
+		}
+
+	case "list_requests", "approve_request", "decline_request", "get_request_count", "search_media":
+		if a.overseerr == nil {
+			return jsonError("Overseerr integration is not configured"), true
+		}
+		switch name {
+		case "list_requests":
+			var input listRequestsInput
+			if err := json.Unmarshal(rawInput, &input); err != nil {
+				return jsonError("invalid input: " + err.Error()), true
+			}
+			take := input.Take
+			if take == 0 {
+				take = 20
+			}
+			result, err = a.overseerr.ListRequests(ctx, input.Filter, take, input.Skip)
+		case "approve_request":
+			var input approveRequestInput
+			if err := json.Unmarshal(rawInput, &input); err != nil {
+				return jsonError("invalid input: " + err.Error()), true
+			}
+			err = a.overseerr.ApproveRequest(ctx, input.ID)
+			if err == nil {
+				result = map[string]string{"status": "approved"}
+			}
+		case "decline_request":
+			var input declineRequestInput
+			if err := json.Unmarshal(rawInput, &input); err != nil {
+				return jsonError("invalid input: " + err.Error()), true
+			}
+			err = a.overseerr.DeclineRequest(ctx, input.ID)
+			if err == nil {
+				result = map[string]string{"status": "declined"}
+			}
+		case "get_request_count":
+			result, err = a.overseerr.GetRequestCount(ctx)
+		case "search_media":
+			var input searchMediaInput
+			if err := json.Unmarshal(rawInput, &input); err != nil {
+				return jsonError("invalid input: " + err.Error()), true
+			}
+			page := input.Page
+			if page == 0 {
+				page = 1
+			}
+			result, err = a.overseerr.SearchMedia(ctx, input.Query, page)
 		}
 
 	default:
