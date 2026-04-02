@@ -19,6 +19,13 @@ type Config struct {
 	Monitor   MonitorConfig   `yaml:"monitor"`
 	Log       LogConfig       `yaml:"log"`
 	Server    ServerConfig    `yaml:"server"`
+	Notebook  NotebookConfig  `yaml:"notebook"`
+}
+
+// NotebookConfig controls the persistent notebook for agent memory.
+type NotebookConfig struct {
+	Enabled bool   `yaml:"enabled"`
+	Path    string `yaml:"path"`
 }
 
 type ServerConfig struct {
@@ -144,6 +151,9 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("GOOGLE_SERVICE_ACCOUNT_FILE"); v != "" {
 		cfg.Chat.ServiceAccountFile = v
+	}
+	if v := os.Getenv("NOTEBOOK_PATH"); v != "" {
+		cfg.Notebook.Path = v
 	}
 }
 

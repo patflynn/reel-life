@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"path/filepath"
 	"testing"
 
+	"github.com/patflynn/reel-life/internal/notebook"
 	"github.com/patflynn/reel-life/internal/overseerr"
 	"github.com/patflynn/reel-life/internal/prowlarr"
 	"github.com/patflynn/reel-life/internal/radarr"
@@ -115,6 +117,12 @@ func (m *mockOverseerr) SearchMedia(_ context.Context, _ string, _ int) (*overse
 
 func newTestAgent() *Agent {
 	return &Agent{sonarr: &mockSonarr{}, radarr: &mockRadarr{}, prowlarr: &mockProwlarr{}, overseerr: &mockOverseerr{}, logger: slog.Default()}
+}
+
+func newTestAgentWithNotebook(t *testing.T) *Agent {
+	t.Helper()
+	nb := notebook.NewFileNotebook(filepath.Join(t.TempDir(), "notebook.json"))
+	return &Agent{sonarr: &mockSonarr{}, radarr: &mockRadarr{}, prowlarr: &mockProwlarr{}, overseerr: &mockOverseerr{}, notebook: nb, logger: slog.Default()}
 }
 
 func TestDispatchSearchSeries(t *testing.T) {
@@ -646,5 +654,163 @@ func TestDispatchSearchMedia(t *testing.T) {
 	}
 	if results.TotalResults != 1 || results.Results[0].Title != "Inception" {
 		t.Errorf("unexpected result: %s", result)
+	}
+}
+
+func TestDispatchNotebookNotConfigured(t *testing.T) {
+	a := &Agent{sonarr: &mockSonarr{}, radarr: &mockRadarr{}, prowlarr: &mockProwlarr{}, overseerr: &mockOverseerr{}}
+
+	for _, tool := range []string{"notebook_write", "notebook_read", "notebook_list", "notebook_delete"} {
+		result, isErr := a.dispatchTool(context.Background(), tool, json.RawMessage("{}"))
+		if !isErr {
+			t.Errorf("%s: expected error when notebook not configured", tool)
+		}
+		if result == "" {
+			t.Errorf("%s: expected error message", tool)
+		}
+	}
+}
+
+func TestDispatchNotebookWrite(t *testing.T) {
+	a := newTestAgentWithNotebook(t)
+
+	input, _ := json.Marshal(notebookWriteInput{
+		Type:    "reference",
+		Title:   "Test Note",
+		Content: "Some content",
+	})
+	result, isErr := a.dispatchTool(context.Background(), "notebook_write", input)
+	if isErr {
+		t.Fatalf("unexpected error: %s", result)
+	}
+
+	var status map[string]string
+	json.Unmarshal([]byte(result), &status)
+	if status["status"] != "saved" {
+		t.Errorf("expected status=saved, got %s", result)
+	}
+}
+
+func TestDispatchNotebookWriteDuplicateTitle(t *testing.T) {
+	a := newTestAgentWithNotebook(t)
+	ctx := context.Background()
+
+	// Write initial note.
+	input, _ := json.Marshal(notebookWriteInput{
+		Type:    "reference",
+		Title:   "User Preferences",
+		Content: "likes sci-fi",
+	})
+	a.dispatchTool(ctx, "notebook_write", input)
+
+	// Try to write another note with the same title (no ID = new note).
+	input, _ = json.Marshal(notebookWriteInput{
+		Type:    "reference",
+		Title:   "User Preferences",
+		Content: "likes horror",
+	})
+	result, isErr := a.dispatchTool(ctx, "notebook_write", input)
+	if isErr {
+		t.Fatalf("unexpected error: %s", result)
+	}
+
+	// Should return a warning with existing_id.
+	var resp map[string]string
+	json.Unmarshal([]byte(result), &resp)
+	if resp["warning"] == "" || resp["existing_id"] == "" {
+		t.Errorf("expected duplicate warning, got: %s", result)
+	}
+}
+
+func TestDispatchNotebookRead(t *testing.T) {
+	a := newTestAgentWithNotebook(t)
+	ctx := context.Background()
+
+	// Write a note first.
+	a.notebook.Write(ctx, notebook.Note{
+		ID:      "read-me",
+		Type:    notebook.Reference,
+		Title:   "Readable",
+		Content: "hello",
+	})
+
+	input, _ := json.Marshal(notebookReadInput{ID: "read-me"})
+	result, isErr := a.dispatchTool(ctx, "notebook_read", input)
+	if isErr {
+		t.Fatalf("unexpected error: %s", result)
+	}
+
+	var note notebook.Note
+	if err := json.Unmarshal([]byte(result), &note); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if note.Title != "Readable" || note.Content != "hello" {
+		t.Errorf("unexpected note: %+v", note)
+	}
+}
+
+func TestDispatchNotebookList(t *testing.T) {
+	a := newTestAgentWithNotebook(t)
+	ctx := context.Background()
+
+	a.notebook.Write(ctx, notebook.Note{ID: "1", Type: notebook.Pinned, Title: "Pinned", Content: "p"})
+	a.notebook.Write(ctx, notebook.Note{ID: "2", Type: notebook.Reference, Title: "Ref", Content: "r"})
+
+	// List all.
+	input, _ := json.Marshal(notebookListInput{})
+	result, isErr := a.dispatchTool(ctx, "notebook_list", input)
+	if isErr {
+		t.Fatalf("unexpected error: %s", result)
+	}
+
+	var summaries []notebook.NoteSummary
+	json.Unmarshal([]byte(result), &summaries)
+	if len(summaries) != 2 {
+		t.Fatalf("expected 2 summaries, got %d", len(summaries))
+	}
+
+	// List filtered.
+	input, _ = json.Marshal(notebookListInput{Type: "pinned"})
+	result, isErr = a.dispatchTool(ctx, "notebook_list", input)
+	if isErr {
+		t.Fatalf("unexpected error: %s", result)
+	}
+
+	json.Unmarshal([]byte(result), &summaries)
+	if len(summaries) != 1 || summaries[0].Title != "Pinned" {
+		t.Errorf("unexpected filtered result: %s", result)
+	}
+}
+
+func TestDispatchNotebookDelete(t *testing.T) {
+	a := newTestAgentWithNotebook(t)
+	ctx := context.Background()
+
+	a.notebook.Write(ctx, notebook.Note{ID: "del-me", Type: notebook.Reference, Title: "Delete", Content: "x"})
+
+	input, _ := json.Marshal(notebookDeleteInput{ID: "del-me"})
+	result, isErr := a.dispatchTool(ctx, "notebook_delete", input)
+	if isErr {
+		t.Fatalf("unexpected error: %s", result)
+	}
+
+	var status map[string]string
+	json.Unmarshal([]byte(result), &status)
+	if status["status"] != "deleted" {
+		t.Errorf("expected status=deleted, got %s", result)
+	}
+}
+
+func TestDispatchNotebookWriteInvalidType(t *testing.T) {
+	a := newTestAgentWithNotebook(t)
+
+	input, _ := json.Marshal(notebookWriteInput{
+		Type:    "invalid",
+		Title:   "Bad",
+		Content: "x",
+	})
+	_, isErr := a.dispatchTool(context.Background(), "notebook_write", input)
+	if !isErr {
+		t.Fatal("expected error for invalid note type")
 	}
 }
