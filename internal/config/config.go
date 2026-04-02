@@ -15,6 +15,11 @@ type Config struct {
 	Agent   AgentConfig   `yaml:"agent"`
 	Monitor MonitorConfig `yaml:"monitor"`
 	Log     LogConfig     `yaml:"log"`
+	Server  ServerConfig  `yaml:"server"`
+}
+
+type ServerConfig struct {
+	Port int `yaml:"port"`
 }
 
 type SonarrConfig struct {
@@ -128,6 +133,14 @@ func validate(cfg *Config) error {
 		return fmt.Errorf("chat.webhook_url or chat.service_account_file + chat.space is required")
 	}
 	return nil
+}
+
+func (c *Config) ListenAddr() string {
+	port := c.Server.Port
+	if port == 0 {
+		port = 9090
+	}
+	return fmt.Sprintf(":%d", port)
 }
 
 func (cfg *Config) LogLevel() slog.Level {

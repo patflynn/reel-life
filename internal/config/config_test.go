@@ -257,6 +257,44 @@ chat:
 	}
 }
 
+func TestListenAddrDefault(t *testing.T) {
+	yaml := `
+sonarr:
+  base_url: http://sonarr:8989
+  api_key: test-key
+chat:
+  webhook_url: https://chat.example.com/webhook
+`
+	path := writeTemp(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if got := cfg.ListenAddr(); got != ":9090" {
+		t.Errorf("ListenAddr() = %q, want %q", got, ":9090")
+	}
+}
+
+func TestListenAddrCustom(t *testing.T) {
+	yaml := `
+sonarr:
+  base_url: http://sonarr:8989
+  api_key: test-key
+chat:
+  webhook_url: https://chat.example.com/webhook
+server:
+  port: 3000
+`
+	path := writeTemp(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if got := cfg.ListenAddr(); got != ":3000" {
+		t.Errorf("ListenAddr() = %q, want %q", got, ":3000")
+	}
+}
+
 func writeTemp(t *testing.T, content string) string {
 	t.Helper()
 	dir := t.TempDir()

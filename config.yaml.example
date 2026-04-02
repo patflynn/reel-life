@@ -25,3 +25,6 @@ monitor:
 log:
   level: info    # debug, info, warn, error
   format: text   # text or json
+
+server:
+  port: 9090     # HTTP port for health checks and webhooks

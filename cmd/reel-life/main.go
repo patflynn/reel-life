@@ -140,7 +140,7 @@ func main() {
 	mux.Handle("POST /webhook", webhookHandler)
 
 	server := &http.Server{
-		Addr:    ":8080",
+		Addr:    cfg.ListenAddr(),
 		Handler: mux,
 	}
 
