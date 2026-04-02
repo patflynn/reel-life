@@ -78,8 +78,10 @@ func (f *FileNotebook) load() (*store, error) {
 		return nil, fmt.Errorf("reading notebook file: %w", err)
 	}
 	var s store
-	if err := json.Unmarshal(data, &s); err != nil {
-		return nil, fmt.Errorf("parsing notebook file: %w", err)
+	if len(data) > 0 {
+		if err := json.Unmarshal(data, &s); err != nil {
+			return nil, fmt.Errorf("parsing notebook file: %w", err)
+		}
 	}
 	return &s, nil
 }
@@ -93,6 +95,7 @@ func (f *FileNotebook) save(s *store) error {
 	if err := os.WriteFile(tmp, data, 0o644); err != nil {
 		return fmt.Errorf("writing notebook temp file: %w", err)
 	}
+	_ = os.Remove(f.path)
 	if err := os.Rename(tmp, f.path); err != nil {
 		return fmt.Errorf("renaming notebook temp file: %w", err)
 	}
@@ -101,7 +104,9 @@ func (f *FileNotebook) save(s *store) error {
 
 func generateID() string {
 	b := make([]byte, 8)
-	rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		panic(fmt.Sprintf("failed to generate random ID: %v", err))
+	}
 	return hex.EncodeToString(b)
 }
 
