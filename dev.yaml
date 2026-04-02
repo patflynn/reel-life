@@ -1,0 +1,18 @@
+sonarr:
+  base_url: http://localhost:8989
+
+chat:
+  backend: telegram
+  telegram_chat_id: 0
+  telegram_allowed_users: []
+
+agent:
+  model: claude-sonnet-4-5-20250929
+  max_tokens: 4096
+
+monitor:
+  enabled: false
+
+log:
+  level: debug
+  format: text
