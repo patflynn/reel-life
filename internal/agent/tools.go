@@ -54,6 +54,25 @@ type searchIndexersInput struct {
 	Query string `json:"query" jsonschema_description:"Search query to run across all indexers"`
 }
 
+type listRequestsInput struct {
+	Filter string `json:"filter,omitempty" jsonschema_description:"Filter requests by status: pending, approved, all (default all)"`
+	Take   int    `json:"take,omitempty" jsonschema_description:"Number of requests to return (default 20)"`
+	Skip   int    `json:"skip,omitempty" jsonschema_description:"Number of requests to skip for pagination"`
+}
+
+type approveRequestInput struct {
+	ID int `json:"id" jsonschema_description:"Request ID to approve"`
+}
+
+type declineRequestInput struct {
+	ID int `json:"id" jsonschema_description:"Request ID to decline"`
+}
+
+type searchMediaInput struct {
+	Query string `json:"query" jsonschema_description:"Search query for movies or TV shows"`
+	Page  int    `json:"page,omitempty" jsonschema_description:"Page number for results (default 1)"`
+}
+
 func generateSchema[T any]() anthropic.ToolInputSchemaParam {
 	reflector := jsonschema.Reflector{
 		AllowAdditionalProperties: false,
@@ -78,6 +97,8 @@ var destructiveTools = map[string]bool{
 	"remove_failed":       true,
 	"add_movie":           true,
 	"remove_failed_movie": true,
+	"approve_request":     true,
+	"decline_request":     true,
 }
 
 // IsDestructive reports whether the named tool modifies state.
@@ -89,6 +110,7 @@ func allToolDefs() []toolDef {
 	defs := sonarrToolDefs()
 	defs = append(defs, radarrToolDefs()...)
 	defs = append(defs, prowlarrToolDefs()...)
+	defs = append(defs, overseerrToolDefs()...)
 	return defs
 }
 
@@ -225,6 +247,48 @@ func prowlarrToolDefs() []toolDef {
 				Name:        "search_indexers",
 				Description: anthropic.String("Search across all configured indexers for releases matching a query."),
 				InputSchema: generateSchema[searchIndexersInput](),
+			},
+		},
+	}
+}
+
+func overseerrToolDefs() []toolDef {
+	return []toolDef{
+		{
+			Param: anthropic.ToolParam{
+				Name:        "list_requests",
+				Description: anthropic.String("List media requests from Overseerr. Filter by status: pending, approved, or all."),
+				InputSchema: generateSchema[listRequestsInput](),
+			},
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "approve_request",
+				Description: anthropic.String("Approve a pending media request in Overseerr. This sends the media to Sonarr/Radarr for downloading."),
+				InputSchema: generateSchema[approveRequestInput](),
+			},
+			Destructive: true,
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "decline_request",
+				Description: anthropic.String("Decline a pending media request in Overseerr."),
+				InputSchema: generateSchema[declineRequestInput](),
+			},
+			Destructive: true,
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "get_request_count",
+				Description: anthropic.String("Get counts of media requests by status (pending, approved, declined, total) from Overseerr."),
+				InputSchema: generateSchema[struct{}](),
+			},
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "search_media",
+				Description: anthropic.String("Search for movies and TV shows in Overseerr's media database."),
+				InputSchema: generateSchema[searchMediaInput](),
 			},
 		},
 	}
