@@ -46,6 +46,14 @@ type getMovieHistoryInput struct {
 	PageSize int `json:"page_size,omitempty" jsonschema_description:"Number of history records to return (default 20)"`
 }
 
+type testIndexerInput struct {
+	ID int `json:"id" jsonschema_description:"Indexer ID to test connectivity for"`
+}
+
+type searchIndexersInput struct {
+	Query string `json:"query" jsonschema_description:"Search query to run across all indexers"`
+}
+
 func generateSchema[T any]() anthropic.ToolInputSchemaParam {
 	reflector := jsonschema.Reflector{
 		AllowAdditionalProperties: false,
@@ -78,6 +86,13 @@ func IsDestructive(name string) bool {
 }
 
 func allToolDefs() []toolDef {
+	defs := sonarrToolDefs()
+	defs = append(defs, radarrToolDefs()...)
+	defs = append(defs, prowlarrToolDefs()...)
+	return defs
+}
+
+func sonarrToolDefs() []toolDef {
 	return []toolDef{
 		{
 			Param: anthropic.ToolParam{
@@ -123,6 +138,11 @@ func allToolDefs() []toolDef {
 			},
 			Destructive: true,
 		},
+	}
+}
+
+func radarrToolDefs() []toolDef {
+	return []toolDef{
 		{
 			Param: anthropic.ToolParam{
 				Name:        "search_movies",
@@ -166,6 +186,46 @@ func allToolDefs() []toolDef {
 				InputSchema: generateSchema[removeFailedMovieInput](),
 			},
 			Destructive: true,
+		},
+	}
+}
+
+func prowlarrToolDefs() []toolDef {
+	return []toolDef{
+		{
+			Param: anthropic.ToolParam{
+				Name:        "list_indexers",
+				Description: anthropic.String("List all configured indexers in Prowlarr with their status, protocol, and priority."),
+				InputSchema: generateSchema[struct{}](),
+			},
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "test_indexer",
+				Description: anthropic.String("Test an indexer's connectivity to verify it is reachable and responding."),
+				InputSchema: generateSchema[testIndexerInput](),
+			},
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "get_indexer_stats",
+				Description: anthropic.String("Get indexer statistics including query counts, grab counts, and response times."),
+				InputSchema: generateSchema[struct{}](),
+			},
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "check_indexer_health",
+				Description: anthropic.String("Check Prowlarr system health for warnings and errors with indexers or connectivity."),
+				InputSchema: generateSchema[struct{}](),
+			},
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "search_indexers",
+				Description: anthropic.String("Search across all configured indexers for releases matching a query."),
+				InputSchema: generateSchema[searchIndexersInput](),
+			},
 		},
 	}
 }

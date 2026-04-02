@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"testing"
 
+	"github.com/patflynn/reel-life/internal/prowlarr"
 	"github.com/patflynn/reel-life/internal/radarr"
 	"github.com/patflynn/reel-life/internal/sonarr"
 )
@@ -64,13 +65,42 @@ func (m *mockRadarr) RemoveFailed(_ context.Context, _ int, _ bool) error {
 	return nil
 }
 
+// mockProwlarr implements prowlarr.Client for agent testing.
+type mockProwlarr struct {
+	indexers     []prowlarr.Indexer
+	stats        *prowlarr.IndexerStats
+	health       []prowlarr.HealthCheck
+	searchResult []prowlarr.SearchResult
+}
+
+func (m *mockProwlarr) ListIndexers(_ context.Context) ([]prowlarr.Indexer, error) {
+	return m.indexers, nil
+}
+func (m *mockProwlarr) TestIndexer(_ context.Context, _ int) error {
+	return nil
+}
+func (m *mockProwlarr) GetIndexerStats(_ context.Context) (*prowlarr.IndexerStats, error) {
+	return m.stats, nil
+}
+func (m *mockProwlarr) CheckHealth(_ context.Context) ([]prowlarr.HealthCheck, error) {
+	return m.health, nil
+}
+func (m *mockProwlarr) Search(_ context.Context, _ string) ([]prowlarr.SearchResult, error) {
+	return m.searchResult, nil
+}
+
+func newTestAgent() *Agent {
+	return &Agent{sonarr: &mockSonarr{}, radarr: &mockRadarr{}, prowlarr: &mockProwlarr{}, logger: slog.Default()}
+}
+
 func TestDispatchSearchSeries(t *testing.T) {
 	mock := &mockSonarr{
 		searchResult: []sonarr.Series{
 			{ID: 1, Title: "Breaking Bad", Year: 2008, TVDBID: 81189},
 		},
 	}
-	a := &Agent{sonarr: mock, radarr: &mockRadarr{}, logger: slog.Default()}
+	a := newTestAgent()
+	a.sonarr = mock
 
 	input, _ := json.Marshal(searchSeriesInput{Term: "breaking bad"})
 	result, isErr := a.dispatchTool(context.Background(), "search_series", input)
@@ -93,7 +123,8 @@ func TestDispatchCheckHealth(t *testing.T) {
 			{Source: "IndexerCheck", Type: "warning", Message: "test warning"},
 		},
 	}
-	a := &Agent{sonarr: mock, radarr: &mockRadarr{}, logger: slog.Default()}
+	a := newTestAgent()
+	a.sonarr = mock
 
 	input, _ := json.Marshal(struct{}{})
 	result, isErr := a.dispatchTool(context.Background(), "check_health", input)
@@ -111,8 +142,7 @@ func TestDispatchCheckHealth(t *testing.T) {
 }
 
 func TestDispatchRemoveFailed(t *testing.T) {
-	mock := &mockSonarr{}
-	a := &Agent{sonarr: mock, radarr: &mockRadarr{}, logger: slog.Default()}
+	a := newTestAgent()
 
 	input, _ := json.Marshal(removeFailedInput{ID: 42, Blocklist: true})
 	result, isErr := a.dispatchTool(context.Background(), "remove_failed", input)
@@ -128,7 +158,7 @@ func TestDispatchRemoveFailed(t *testing.T) {
 }
 
 func TestDispatchUnknownTool(t *testing.T) {
-	a := &Agent{sonarr: &mockSonarr{}, radarr: &mockRadarr{}}
+	a := &Agent{sonarr: &mockSonarr{}, radarr: &mockRadarr{}, prowlarr: &mockProwlarr{}}
 
 	result, isErr := a.dispatchTool(context.Background(), "nonexistent", json.RawMessage("{}"))
 	if !isErr {
@@ -149,7 +179,8 @@ func TestDispatchGetQueue(t *testing.T) {
 			},
 		},
 	}
-	a := &Agent{sonarr: mock, radarr: &mockRadarr{}, logger: slog.Default()}
+	a := newTestAgent()
+	a.sonarr = mock
 
 	input, _ := json.Marshal(struct{}{})
 	result, isErr := a.dispatchTool(context.Background(), "get_queue", input)
@@ -167,8 +198,7 @@ func TestDispatchGetQueue(t *testing.T) {
 }
 
 func TestDispatchAddSeries(t *testing.T) {
-	mock := &mockSonarr{}
-	a := &Agent{sonarr: mock, radarr: &mockRadarr{}, logger: slog.Default()}
+	a := newTestAgent()
 
 	input, _ := json.Marshal(addSeriesInput{
 		Title:            "Breaking Bad",
@@ -199,7 +229,8 @@ func TestDispatchGetHistory(t *testing.T) {
 			},
 		},
 	}
-	a := &Agent{sonarr: mock, radarr: &mockRadarr{}, logger: slog.Default()}
+	a := newTestAgent()
+	a.sonarr = mock
 
 	input, _ := json.Marshal(getHistoryInput{PageSize: 10})
 	result, isErr := a.dispatchTool(context.Background(), "get_history", input)
@@ -222,7 +253,8 @@ func TestDispatchSearchMovies(t *testing.T) {
 			{ID: 1, Title: "Inception", Year: 2010, TMDBID: 27205},
 		},
 	}
-	a := &Agent{sonarr: &mockSonarr{}, radarr: mock, logger: slog.Default()}
+	a := newTestAgent()
+	a.radarr = mock
 
 	input, _ := json.Marshal(searchMoviesInput{Term: "inception"})
 	result, isErr := a.dispatchTool(context.Background(), "search_movies", input)
@@ -240,8 +272,7 @@ func TestDispatchSearchMovies(t *testing.T) {
 }
 
 func TestDispatchAddMovie(t *testing.T) {
-	mock := &mockRadarr{}
-	a := &Agent{sonarr: &mockSonarr{}, radarr: mock, logger: slog.Default()}
+	a := newTestAgent()
 
 	input, _ := json.Marshal(addMovieInput{
 		Title:            "Inception",
@@ -272,7 +303,8 @@ func TestDispatchGetMovieQueue(t *testing.T) {
 			},
 		},
 	}
-	a := &Agent{sonarr: &mockSonarr{}, radarr: mock, logger: slog.Default()}
+	a := newTestAgent()
+	a.radarr = mock
 
 	input, _ := json.Marshal(struct{}{})
 	result, isErr := a.dispatchTool(context.Background(), "get_movie_queue", input)
@@ -295,7 +327,8 @@ func TestDispatchCheckMovieHealth(t *testing.T) {
 			{Source: "IndexerCheck", Type: "warning", Message: "test warning"},
 		},
 	}
-	a := &Agent{sonarr: &mockSonarr{}, radarr: mock, logger: slog.Default()}
+	a := newTestAgent()
+	a.radarr = mock
 
 	input, _ := json.Marshal(struct{}{})
 	result, isErr := a.dispatchTool(context.Background(), "check_movie_health", input)
@@ -313,8 +346,7 @@ func TestDispatchCheckMovieHealth(t *testing.T) {
 }
 
 func TestDispatchRemoveFailedMovie(t *testing.T) {
-	mock := &mockRadarr{}
-	a := &Agent{sonarr: &mockSonarr{}, radarr: mock, logger: slog.Default()}
+	a := newTestAgent()
 
 	input, _ := json.Marshal(removeFailedMovieInput{ID: 42, Blocklist: true})
 	result, isErr := a.dispatchTool(context.Background(), "remove_failed_movie", input)
@@ -338,7 +370,8 @@ func TestDispatchGetMovieHistory(t *testing.T) {
 			},
 		},
 	}
-	a := &Agent{sonarr: &mockSonarr{}, radarr: mock, logger: slog.Default()}
+	a := newTestAgent()
+	a.radarr = mock
 
 	input, _ := json.Marshal(getMovieHistoryInput{PageSize: 10})
 	result, isErr := a.dispatchTool(context.Background(), "get_movie_history", input)
@@ -352,5 +385,119 @@ func TestDispatchGetMovieHistory(t *testing.T) {
 	}
 	if history.TotalRecords != 1 {
 		t.Errorf("expected 1 record, got %d", history.TotalRecords)
+	}
+}
+
+func TestDispatchListIndexers(t *testing.T) {
+	mock := &mockProwlarr{
+		indexers: []prowlarr.Indexer{
+			{ID: 1, Name: "NZBgeek", Enable: true, Protocol: "usenet", Priority: 25},
+		},
+	}
+	a := newTestAgent()
+	a.prowlarr = mock
+
+	input, _ := json.Marshal(struct{}{})
+	result, isErr := a.dispatchTool(context.Background(), "list_indexers", input)
+	if isErr {
+		t.Fatalf("unexpected error: %s", result)
+	}
+
+	var indexers []prowlarr.Indexer
+	if err := json.Unmarshal([]byte(result), &indexers); err != nil {
+		t.Fatalf("unmarshal result: %v", err)
+	}
+	if len(indexers) != 1 || indexers[0].Name != "NZBgeek" {
+		t.Errorf("unexpected result: %s", result)
+	}
+}
+
+func TestDispatchTestIndexer(t *testing.T) {
+	a := newTestAgent()
+
+	input, _ := json.Marshal(testIndexerInput{ID: 5})
+	result, isErr := a.dispatchTool(context.Background(), "test_indexer", input)
+	if isErr {
+		t.Fatalf("unexpected error: %s", result)
+	}
+
+	var status map[string]string
+	json.Unmarshal([]byte(result), &status)
+	if status["status"] != "ok" {
+		t.Errorf("expected status=ok, got %s", result)
+	}
+}
+
+func TestDispatchGetIndexerStats(t *testing.T) {
+	mock := &mockProwlarr{
+		stats: &prowlarr.IndexerStats{
+			Indexers: []prowlarr.IndexerStatEntry{
+				{IndexerID: 1, IndexerName: "NZBgeek", NumberOfQueries: 100},
+			},
+		},
+	}
+	a := newTestAgent()
+	a.prowlarr = mock
+
+	input, _ := json.Marshal(struct{}{})
+	result, isErr := a.dispatchTool(context.Background(), "get_indexer_stats", input)
+	if isErr {
+		t.Fatalf("unexpected error: %s", result)
+	}
+
+	var stats prowlarr.IndexerStats
+	if err := json.Unmarshal([]byte(result), &stats); err != nil {
+		t.Fatalf("unmarshal result: %v", err)
+	}
+	if len(stats.Indexers) != 1 {
+		t.Errorf("expected 1 indexer stat, got %d", len(stats.Indexers))
+	}
+}
+
+func TestDispatchCheckIndexerHealth(t *testing.T) {
+	mock := &mockProwlarr{
+		health: []prowlarr.HealthCheck{
+			{Source: "IndexerStatusCheck", Type: "warning", Message: "test"},
+		},
+	}
+	a := newTestAgent()
+	a.prowlarr = mock
+
+	input, _ := json.Marshal(struct{}{})
+	result, isErr := a.dispatchTool(context.Background(), "check_indexer_health", input)
+	if isErr {
+		t.Fatalf("unexpected error: %s", result)
+	}
+
+	var checks []prowlarr.HealthCheck
+	if err := json.Unmarshal([]byte(result), &checks); err != nil {
+		t.Fatalf("unmarshal result: %v", err)
+	}
+	if len(checks) != 1 {
+		t.Errorf("expected 1 check, got %d", len(checks))
+	}
+}
+
+func TestDispatchSearchIndexers(t *testing.T) {
+	mock := &mockProwlarr{
+		searchResult: []prowlarr.SearchResult{
+			{GUID: "abc123", IndexerID: 1, Title: "Breaking.Bad.S01E01", Size: 1400000000},
+		},
+	}
+	a := newTestAgent()
+	a.prowlarr = mock
+
+	input, _ := json.Marshal(searchIndexersInput{Query: "breaking bad"})
+	result, isErr := a.dispatchTool(context.Background(), "search_indexers", input)
+	if isErr {
+		t.Fatalf("unexpected error: %s", result)
+	}
+
+	var results []prowlarr.SearchResult
+	if err := json.Unmarshal([]byte(result), &results); err != nil {
+		t.Fatalf("unmarshal result: %v", err)
+	}
+	if len(results) != 1 || results[0].Title != "Breaking.Bad.S01E01" {
+		t.Errorf("unexpected result: %s", result)
 	}
 }
