@@ -14,6 +14,7 @@ import (
 	"github.com/patflynn/reel-life/internal/chat"
 	"github.com/patflynn/reel-life/internal/config"
 	"github.com/patflynn/reel-life/internal/monitor"
+	"github.com/patflynn/reel-life/internal/notebook"
 	"github.com/patflynn/reel-life/internal/overseerr"
 	"github.com/patflynn/reel-life/internal/prowlarr"
 	"github.com/patflynn/reel-life/internal/radarr"
@@ -133,7 +134,18 @@ func main() {
 	}
 	limiter = agent.NewRateLimiter(maxPerMin, maxPerReq, maxDestructive)
 
-	agentInstance := agent.New(anthropicKey, sonarrClient, radarrClient, prowlarrClient, overseerrClient, cfg.Agent.Model, cfg.Agent.MaxTokens, logger, limiter)
+	// Notebook (optional — enabled explicitly or when a path is set).
+	var nb notebook.Notebook
+	if cfg.Notebook.Enabled || cfg.Notebook.Path != "" {
+		nbPath := cfg.Notebook.Path
+		if nbPath == "" {
+			nbPath = "notebook.json"
+		}
+		nb = notebook.NewFileNotebook(nbPath)
+		logger.Info("notebook enabled", "path", nbPath)
+	}
+
+	agentInstance := agent.New(anthropicKey, sonarrClient, radarrClient, prowlarrClient, overseerrClient, nb, cfg.Agent.Model, cfg.Agent.MaxTokens, logger, limiter)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()

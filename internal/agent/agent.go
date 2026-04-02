@@ -10,6 +10,7 @@ import (
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
+	"github.com/patflynn/reel-life/internal/notebook"
 	"github.com/patflynn/reel-life/internal/overseerr"
 	"github.com/patflynn/reel-life/internal/prowlarr"
 	"github.com/patflynn/reel-life/internal/radarr"
@@ -35,7 +36,11 @@ Guidelines:
 - Always confirm with the user before adding a new series or movie, or approving/declining requests
 - When reporting health issues, clearly explain what each issue means and suggest fixes
 - Be direct and helpful — avoid unnecessary pleasantries
-- Only use the tools provided — do not make up information`
+- Only use the tools provided — do not make up information
+- You have a persistent notebook for memory across conversations. Save useful observations: user preferences, recurring issues, operational patterns
+- Pinned notes are always visible to you; reference notes need to be looked up with notebook_read
+- Keep pinned notes concise and high-signal; use reference type for detailed information
+- Before creating a new note, check existing notes to avoid duplicates — update instead if a similar note exists`
 
 const maxToolRounds = 10
 
@@ -46,13 +51,14 @@ type Agent struct {
 	radarr    radarr.Client
 	prowlarr  prowlarr.Client
 	overseerr overseerr.Client
+	notebook  notebook.Notebook
 	model     string
 	maxTok    int64
 	logger    *slog.Logger
 	limiter   *RateLimiter
 }
 
-func New(apiKey string, sonarrClient sonarr.Client, radarrClient radarr.Client, prowlarrClient prowlarr.Client, overseerrClient overseerr.Client, model string, maxTokens int, logger *slog.Logger, limiter *RateLimiter) *Agent {
+func New(apiKey string, sonarrClient sonarr.Client, radarrClient radarr.Client, prowlarrClient prowlarr.Client, overseerrClient overseerr.Client, nb notebook.Notebook, model string, maxTokens int, logger *slog.Logger, limiter *RateLimiter) *Agent {
 	client := anthropic.NewClient(option.WithAPIKey(apiKey))
 	return &Agent{
 		client:    &client,
@@ -60,6 +66,7 @@ func New(apiKey string, sonarrClient sonarr.Client, radarrClient radarr.Client, 
 		radarr:    radarrClient,
 		prowlarr:  prowlarrClient,
 		overseerr: overseerrClient,
+		notebook:  nb,
 		model:     model,
 		maxTok:    int64(maxTokens),
 		logger:    logger,
@@ -68,13 +75,14 @@ func New(apiKey string, sonarrClient sonarr.Client, radarrClient radarr.Client, 
 }
 
 // NewWithClient creates an Agent with a pre-configured Anthropic client (for testing).
-func NewWithClient(client *anthropic.Client, sonarrClient sonarr.Client, radarrClient radarr.Client, prowlarrClient prowlarr.Client, overseerrClient overseerr.Client, model string, maxTokens int, logger *slog.Logger, limiter *RateLimiter) *Agent {
+func NewWithClient(client *anthropic.Client, sonarrClient sonarr.Client, radarrClient radarr.Client, prowlarrClient prowlarr.Client, overseerrClient overseerr.Client, nb notebook.Notebook, model string, maxTokens int, logger *slog.Logger, limiter *RateLimiter) *Agent {
 	return &Agent{
 		client:    client,
 		sonarr:    sonarrClient,
 		radarr:    radarrClient,
 		prowlarr:  prowlarrClient,
 		overseerr: overseerrClient,
+		notebook:  nb,
 		model:     model,
 		maxTok:    int64(maxTokens),
 		logger:    logger,
@@ -97,6 +105,35 @@ func requestID(ctx context.Context) string {
 	return ""
 }
 
+// buildSystemPrompt returns the system prompt with pinned notebook notes appended.
+func (a *Agent) buildSystemPrompt(ctx context.Context) string {
+	prompt := systemPrompt
+	if a.notebook == nil {
+		return prompt
+	}
+
+	pinned, err := a.notebook.Pinned(ctx)
+	if err != nil {
+		a.logger.Warn("failed to load pinned notes", "error", err)
+		return prompt
+	}
+	if len(pinned) == 0 {
+		return prompt
+	}
+
+	var sb strings.Builder
+	sb.WriteString(prompt)
+	sb.WriteString("\n\n## Notebook (always loaded)\n")
+	for _, n := range pinned {
+		sb.WriteString("### ")
+		sb.WriteString(n.Title)
+		sb.WriteString("\n")
+		sb.WriteString(n.Content)
+		sb.WriteString("\n")
+	}
+	return sb.String()
+}
+
 // Process runs the agentic tool-use loop for a user message and returns the final text response.
 func (a *Agent) Process(ctx context.Context, userMessage string) (string, error) {
 	tools := toolDefinitions()
@@ -109,13 +146,14 @@ func (a *Agent) Process(ctx context.Context, userMessage string) (string, error)
 	}
 
 	reqID := requestID(ctx)
+	sysPrompt := a.buildSystemPrompt(ctx)
 
 	for round := range maxToolRounds {
 		resp, err := a.client.Messages.New(ctx, anthropic.MessageNewParams{
 			Model:     anthropic.Model(a.model),
 			MaxTokens: a.maxTok,
 			System: []anthropic.TextBlockParam{
-				{Text: systemPrompt},
+				{Text: sysPrompt},
 			},
 			Messages: messages,
 			Tools:    tools,
@@ -390,6 +428,81 @@ func (a *Agent) dispatchTool(ctx context.Context, name string, rawInput json.Raw
 				page = 1
 			}
 			result, err = a.overseerr.SearchMedia(ctx, input.Query, page)
+		}
+
+	case "notebook_write", "notebook_read", "notebook_list", "notebook_delete":
+		if a.notebook == nil {
+			return jsonError("Notebook integration is not configured"), true
+		}
+		switch name {
+		case "notebook_write":
+			var input notebookWriteInput
+			if err := json.Unmarshal(rawInput, &input); err != nil {
+				return jsonError("invalid input: " + err.Error()), true
+			}
+			noteType := notebook.NoteType(input.Type)
+			if noteType != notebook.Pinned && noteType != notebook.Reference {
+				return jsonError("type must be 'pinned' or 'reference'"), true
+			}
+			// Check for duplicate titles to avoid creating redundant notes.
+			if input.ID == "" {
+				existing, searchErr := a.notebook.Search(ctx, input.Title)
+				if searchErr == nil {
+					for _, n := range existing {
+						if strings.EqualFold(n.Title, input.Title) {
+							data, _ := json.Marshal(map[string]string{
+								"warning":     "a note with a similar title already exists",
+								"existing_id": n.ID,
+								"title":       n.Title,
+							})
+							return string(data), false
+						}
+					}
+				}
+			}
+			err = a.notebook.Write(ctx, notebook.Note{
+				ID:      input.ID,
+				Type:    noteType,
+				Title:   input.Title,
+				Content: input.Content,
+			})
+			if err == nil {
+				result = map[string]string{"status": "saved"}
+			}
+		case "notebook_read":
+			var input notebookReadInput
+			if err := json.Unmarshal(rawInput, &input); err != nil {
+				return jsonError("invalid input: " + err.Error()), true
+			}
+			result, err = a.notebook.Read(ctx, input.ID)
+		case "notebook_list":
+			var input notebookListInput
+			if err := json.Unmarshal(rawInput, &input); err != nil {
+				return jsonError("invalid input: " + err.Error()), true
+			}
+			summaries, listErr := a.notebook.List(ctx)
+			if listErr != nil {
+				err = listErr
+			} else if input.Type != "" {
+				filtered := make([]notebook.NoteSummary, 0)
+				for _, s := range summaries {
+					if string(s.Type) == input.Type {
+						filtered = append(filtered, s)
+					}
+				}
+				result = filtered
+			} else {
+				result = summaries
+			}
+		case "notebook_delete":
+			var input notebookDeleteInput
+			if err := json.Unmarshal(rawInput, &input); err != nil {
+				return jsonError("invalid input: " + err.Error()), true
+			}
+			err = a.notebook.Delete(ctx, input.ID)
+			if err == nil {
+				result = map[string]string{"status": "deleted"}
+			}
 		}
 
 	default:
