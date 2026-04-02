@@ -1,0 +1,16 @@
+{
+  "id": "20260402-1552-6c95",
+  "prompt": "Add Prowlarr (indexer management) integration to reel-life, following the exact same pattern as the existing Sonarr integration.\n\n## Architecture pattern (follow exactly)\n\n1. **Create `internal/prowlarr/client.go`** — Define a `Client` interface and `HTTPClient` implementation, mirroring `internal/sonarr/client.go`. Use Prowlarr's v1 API. The HTTP client should use the same pattern: `X-Api-Key` header, JSON responses, base URL + path construction.\n\n2. **Create `internal/prowlarr/types.go`** — JSON-serializable structs for Prowlarr API responses.\n\n3. **Add tools in `internal/agent/tools.go`** — Add input structs and tool definitions. Use the `generateSchema[T]()` helper. Mark destructive tools.\n\n4. **Add dispatch in `internal/agent/agent.go`** — Add case statements in `dispatchTool()`. The Agent struct needs a `prowlarr prowlarr.Client` field. Update constructors.\n\n5. **Update config in `internal/config/config.go`** — Add `ProwlarrConfig` struct, env var overrides (`PROWLARR_API_KEY`, `PROWLARR_URL`).\n\n6. **Wire in `cmd/reel-life/main.go`** — Instantiate client, pass to agent.\n\n7. **Update system prompt** to mention indexer management capabilities.\n\n## Prowlarr tools to implement\n\nProwlarr manages indexers (torrent/usenet sources) that feed into Sonarr/Radarr:\n- `list_indexers` — List all configured indexers with status (GET /api/v1/indexer)\n- `test_indexer` — Test an indexer's connectivity (POST /api/v1/indexer/test with body {\"id\": N}) — treat as read-only, not destructive\n- `get_indexer_stats` — Get indexer statistics (GET /api/v1/indexerstats)\n- `check_indexer_health` — System health check (GET /api/v1/health)\n- `search_indexers` — Search across all indexers for releases (GET /api/v1/search?query=...\u0026type=search)\n\n## Key Prowlarr API details\n- API is v1 (not v3 like Sonarr/Radarr)\n- Indexer struct has: id, name, enable, protocol (\"torrent\"/\"usenet\"), priority, fields, tags\n- IndexerStats has: indexerId, indexerName, averageResponseTime, numberOfQueries, numberOfGrabs, numberOfFailedQueries\n- Health endpoint is same format as Sonarr (source, type, message)\n- Search results have: guid, indexerId, title, size, publishDate, downloadUrl, categories\n\n## Testing\n- Add tests in `internal/prowlarr/client_test.go` using `net/http/httptest`\n- Run `go test ./...` and `go vet ./...` before creating PR\n- Make sure all existing tests still pass\n\n## Constraints\n- Do NOT modify the Sonarr integration\n- Follow existing code style exactly\n- Prowlarr default port is 9696 (use as default base_url: http://localhost:9696)",
+  "issue": null,
+  "branch": "agent/20260402-1552-6c95",
+  "worktree": "/tmp/klaus-sessions/reel-life/20260402-1552-6c95",
+  "tmux_pane": "%8",
+  "budget": "5.00",
+  "log_file": "/home/patrick/.klaus/sessions/session-20260402-1452-db5c/logs/20260402-1552-6c95.jsonl",
+  "created_at": "2026-04-02T15:52:10-04:00",
+  "cost_usd": 1.2460634500000003,
+  "duration_ms": 239294,
+  "pr_url": "https://github.com/patflynn/reel-life/pull/16",
+  "target_repo": "reel-life",
+  "clone_dir": "/home/patrick/hack/reel-life"
+}
