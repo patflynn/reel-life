@@ -111,6 +111,12 @@ in
       description = "Log format (text, json)";
     };
 
+    listenPort = lib.mkOption {
+      type = lib.types.port;
+      default = 9090;
+      description = "HTTP port for health checks and webhooks";
+    };
+
     environmentFiles = lib.mkOption {
       type = lib.types.listOf lib.types.path;
       default = [ ];
@@ -170,6 +176,8 @@ in
       log:
         level: "${cfg.logLevel}"
         format: "${cfg.logFormat}"
+      server:
+        port: ${toString cfg.listenPort}
     '';
 
     systemd.services.reel-life = {
