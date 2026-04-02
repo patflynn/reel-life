@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 )
 
 // Client defines the operations available against an Overseerr instance.
@@ -31,7 +32,9 @@ func NewClient(baseURL, apiKey string) *HTTPClient {
 	return &HTTPClient{
 		baseURL:    baseURL,
 		apiKey:     apiKey,
-		httpClient: &http.Client{},
+		httpClient: &http.Client{
+			Timeout: 10 * time.Second,
+		},
 	}
 }
 
@@ -101,8 +104,11 @@ func (c *HTTPClient) SearchMedia(ctx context.Context, query string, page int) (*
 }
 
 func (c *HTTPClient) url(path string) *url.URL {
-	u, _ := url.Parse(c.baseURL + path)
-	return u
+	u, err := url.Parse(c.baseURL)
+	if err != nil {
+		return &url.URL{Path: path}
+	}
+	return u.JoinPath(path)
 }
 
 func (c *HTTPClient) get(ctx context.Context, rawURL string, out any) error {
