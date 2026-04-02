@@ -1,0 +1,16 @@
+{
+  "id": "20260401-2126-374c",
+  "prompt": "Make the HTTP listen port configurable and change the default to 9090.\n\n## Context\nThe health/webhook HTTP server port is hardcoded to 8080 in cmd/reel-life/main.go:143. Port 8080 conflicts with other services (e.g. qBittorrent via Podman). It needs to be configurable via config.yaml and default to something less common.\n\n## What to change\n\n### 1. internal/config/config.go\nAdd a new field to the top-level Config struct:\n```go\nServer struct {\n    Port int `yaml:\"port\"`\n} `yaml:\"server\"`\n```\n\nAdd a helper method:\n```go\nfunc (c *Config) ListenAddr() string {\n    port := c.Server.Port\n    if port == 0 {\n        port = 9090\n    }\n    return fmt.Sprintf(\":%d\", port)\n}\n```\n\n### 2. cmd/reel-life/main.go\nChange line 143 from:\n```go\nAddr: \":8080\",\n```\nto:\n```go\nAddr: cfg.ListenAddr(),\n```\n\nAlso update the log line on 153 to use the configured addr.\n\n### 3. nix/module.nix\nAdd a new option:\n```nix\nlistenPort = lib.mkOption {\n    type = lib.types.port;\n    default = 9090;\n    description = \"HTTP port for health checks and webhooks\";\n};\n```\n\nAdd to the generated config.yaml:\n```yaml\nserver:\n    port: ${toString cfg.listenPort}\n```\n\n### 4. config.yaml.example\nAdd the server section:\n```yaml\nserver:\n    port: 9090\n```\n\n### 5. Tests\n- Add a test in internal/config/config_test.go for the default port and custom port\n- Ensure existing tests still pass\n- Run: go test ./...\n\n## Acceptance criteria\n- Default port is 9090\n- Port is configurable via config.yaml server.port field\n- NixOS module exposes listenPort option\n- config.yaml.example updated\n- All tests pass",
+  "issue": null,
+  "branch": "agent/20260401-2126-374c",
+  "worktree": "/tmp/klaus-sessions/reel-life/20260401-2126-374c",
+  "tmux_pane": "%30",
+  "budget": "5.00",
+  "log_file": "/home/patrick/.klaus/sessions/session-20260401-2036-cb7c/logs/20260401-2126-374c.jsonl",
+  "created_at": "2026-04-01T21:26:13-04:00",
+  "cost_usd": 0.45060250000000013,
+  "duration_ms": 74455,
+  "pr_url": "https://github.com/patflynn/reel-life/pull/11",
+  "target_repo": "reel-life",
+  "clone_dir": "/home/patrick/hack/reel-life"
+}
