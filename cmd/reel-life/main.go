@@ -14,6 +14,7 @@ import (
 	"github.com/patflynn/reel-life/internal/chat"
 	"github.com/patflynn/reel-life/internal/config"
 	"github.com/patflynn/reel-life/internal/monitor"
+	"github.com/patflynn/reel-life/internal/radarr"
 	"github.com/patflynn/reel-life/internal/sonarr"
 )
 
@@ -37,6 +38,12 @@ func main() {
 	}
 
 	sonarrClient := sonarr.NewClient(cfg.Sonarr.BaseURL, cfg.Sonarr.APIKey)
+
+	var radarrClient radarr.Client
+	if cfg.Radarr.BaseURL != "" {
+		radarrClient = radarr.NewClient(cfg.Radarr.BaseURL, cfg.Radarr.APIKey)
+		logger.Info("radarr client configured", "url", cfg.Radarr.BaseURL)
+	}
 
 	// Select notifier based on backend configuration.
 	var notifier chat.Notifier
@@ -102,7 +109,7 @@ func main() {
 	}
 	limiter = agent.NewRateLimiter(maxPerMin, maxPerReq, maxDestructive)
 
-	agentInstance := agent.New(anthropicKey, sonarrClient, cfg.Agent.Model, cfg.Agent.MaxTokens, logger, limiter)
+	agentInstance := agent.New(anthropicKey, sonarrClient, radarrClient, cfg.Agent.Model, cfg.Agent.MaxTokens, logger, limiter)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()

@@ -10,43 +10,46 @@ import (
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
+	"github.com/patflynn/reel-life/internal/radarr"
 	"github.com/patflynn/reel-life/internal/sonarr"
 )
 
-const systemPrompt = `You are a media curation assistant for a home media server. You help users manage their TV series library through Sonarr.
+const systemPrompt = `You are a media curation assistant for a home media server. You help users manage their TV series library through Sonarr and their movie library through Radarr.
 
 Your capabilities:
-- Search for TV series and provide concise summaries of results
-- Add series to the library for monitoring and automatic downloading
-- Check the download queue for active and pending downloads
+- Search for TV series and movies, and provide concise summaries of results
+- Add series or movies to the library for monitoring and automatic downloading
+- Check the download queue for active and pending downloads (both TV and movies)
 - Review download history for recent activity
 - Monitor system health and report any issues
 - Remove failed downloads and manage the blocklist
 
 Guidelines:
 - When searching, present results concisely with title, year, and a brief description
-- Always confirm with the user before adding a new series
+- Always confirm with the user before adding a new series or movie
 - When reporting health issues, clearly explain what each issue means and suggest fixes
 - Be direct and helpful — avoid unnecessary pleasantries
 - Only use the tools provided — do not make up information`
 
 const maxToolRounds = 10
 
-// Agent handles natural language interactions using Claude with Sonarr tools.
+// Agent handles natural language interactions using Claude with Sonarr and Radarr tools.
 type Agent struct {
 	client  *anthropic.Client
 	sonarr  sonarr.Client
+	radarr  radarr.Client
 	model   string
 	maxTok  int64
 	logger  *slog.Logger
 	limiter *RateLimiter
 }
 
-func New(apiKey string, sonarrClient sonarr.Client, model string, maxTokens int, logger *slog.Logger, limiter *RateLimiter) *Agent {
+func New(apiKey string, sonarrClient sonarr.Client, radarrClient radarr.Client, model string, maxTokens int, logger *slog.Logger, limiter *RateLimiter) *Agent {
 	client := anthropic.NewClient(option.WithAPIKey(apiKey))
 	return &Agent{
 		client:  &client,
 		sonarr:  sonarrClient,
+		radarr:  radarrClient,
 		model:   model,
 		maxTok:  int64(maxTokens),
 		logger:  logger,
@@ -55,10 +58,11 @@ func New(apiKey string, sonarrClient sonarr.Client, model string, maxTokens int,
 }
 
 // NewWithClient creates an Agent with a pre-configured Anthropic client (for testing).
-func NewWithClient(client *anthropic.Client, sonarrClient sonarr.Client, model string, maxTokens int, logger *slog.Logger, limiter *RateLimiter) *Agent {
+func NewWithClient(client *anthropic.Client, sonarrClient sonarr.Client, radarrClient radarr.Client, model string, maxTokens int, logger *slog.Logger, limiter *RateLimiter) *Agent {
 	return &Agent{
 		client:  client,
 		sonarr:  sonarrClient,
+		radarr:  radarrClient,
 		model:   model,
 		maxTok:  int64(maxTokens),
 		logger:  logger,
@@ -244,6 +248,58 @@ func (a *Agent) dispatchTool(ctx context.Context, name string, rawInput json.Raw
 			return jsonError("invalid input: " + err.Error()), true
 		}
 		err = a.sonarr.RemoveFailed(ctx, input.ID, input.Blocklist)
+		if err == nil {
+			result = map[string]string{"status": "removed"}
+		}
+
+	case "search_movies":
+		var input searchMoviesInput
+		if err := json.Unmarshal(rawInput, &input); err != nil {
+			return jsonError("invalid input: " + err.Error()), true
+		}
+		result, err = a.radarr.Search(ctx, input.Term)
+
+	case "add_movie":
+		var input addMovieInput
+		if err := json.Unmarshal(rawInput, &input); err != nil {
+			return jsonError("invalid input: " + err.Error()), true
+		}
+		minAvail := input.MinimumAvailability
+		if minAvail == "" {
+			minAvail = "released"
+		}
+		result, err = a.radarr.Add(ctx, radarr.AddMovieRequest{
+			Title:               input.Title,
+			TMDBID:              input.TMDBID,
+			QualityProfileID:    input.QualityProfileID,
+			RootFolderPath:      input.RootFolderPath,
+			Monitored:           true,
+			MinimumAvailability: minAvail,
+		})
+
+	case "get_movie_queue":
+		result, err = a.radarr.Queue(ctx)
+
+	case "get_movie_history":
+		var input getMovieHistoryInput
+		if err := json.Unmarshal(rawInput, &input); err != nil {
+			return jsonError("invalid input: " + err.Error()), true
+		}
+		pageSize := input.PageSize
+		if pageSize == 0 {
+			pageSize = 20
+		}
+		result, err = a.radarr.History(ctx, pageSize)
+
+	case "check_movie_health":
+		result, err = a.radarr.Health(ctx)
+
+	case "remove_failed_movie":
+		var input removeFailedMovieInput
+		if err := json.Unmarshal(rawInput, &input); err != nil {
+			return jsonError("invalid input: " + err.Error()), true
+		}
+		err = a.radarr.RemoveFailed(ctx, input.ID, input.Blocklist)
 		if err == nil {
 			result = map[string]string{"status": "removed"}
 		}

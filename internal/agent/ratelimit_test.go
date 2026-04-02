@@ -97,7 +97,7 @@ func TestRateLimiterDenialReturnedAsToolError(t *testing.T) {
 	mock := &mockSonarr{}
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	a := &Agent{sonarr: mock, logger: logger, limiter: rl}
+	a := &Agent{sonarr: mock, radarr: &mockRadarr{}, logger: logger, limiter: rl}
 
 	input, _ := json.Marshal(addSeriesInput{
 		Title: "Test", TVDBID: 1, QualityProfileID: 1, RootFolderPath: "/tv",
@@ -117,7 +117,7 @@ func TestAuditLogging(t *testing.T) {
 	}
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	a := &Agent{sonarr: mock, logger: logger}
+	a := &Agent{sonarr: mock, radarr: &mockRadarr{}, logger: logger}
 
 	input, _ := json.Marshal(searchSeriesInput{Term: "test"})
 	a.executeToolWithAudit(context.Background(), "search_series", input, 0, "req-42")

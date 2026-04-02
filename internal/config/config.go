@@ -11,6 +11,7 @@ import (
 
 type Config struct {
 	Sonarr  SonarrConfig  `yaml:"sonarr"`
+	Radarr  RadarrConfig  `yaml:"radarr"`
 	Chat    ChatConfig    `yaml:"chat"`
 	Agent   AgentConfig   `yaml:"agent"`
 	Monitor MonitorConfig `yaml:"monitor"`
@@ -23,6 +24,11 @@ type ServerConfig struct {
 }
 
 type SonarrConfig struct {
+	BaseURL string `yaml:"base_url"`
+	APIKey  string `yaml:"api_key"`
+}
+
+type RadarrConfig struct {
 	BaseURL string `yaml:"base_url"`
 	APIKey  string `yaml:"api_key"`
 }
@@ -103,6 +109,12 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("SONARR_URL"); v != "" {
 		cfg.Sonarr.BaseURL = v
 	}
+	if v := os.Getenv("RADARR_API_KEY"); v != "" {
+		cfg.Radarr.APIKey = v
+	}
+	if v := os.Getenv("RADARR_URL"); v != "" {
+		cfg.Radarr.BaseURL = v
+	}
 	if v := os.Getenv("GOOGLE_CHAT_WEBHOOK_URL"); v != "" {
 		cfg.Chat.WebhookURL = v
 	}
@@ -123,6 +135,9 @@ func validate(cfg *Config) error {
 	}
 	if cfg.Sonarr.APIKey == "" {
 		return fmt.Errorf("sonarr.api_key is required (set SONARR_API_KEY env var)")
+	}
+	if cfg.Radarr.BaseURL != "" && cfg.Radarr.APIKey == "" {
+		return fmt.Errorf("radarr.api_key is required when radarr.base_url is set (set RADARR_API_KEY env var)")
 	}
 	// Telegram backend only needs the bot token (checked at startup via env var).
 	if cfg.Chat.Backend == "telegram" {
