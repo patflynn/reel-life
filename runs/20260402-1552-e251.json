@@ -1,0 +1,16 @@
+{
+  "id": "20260402-1552-e251",
+  "prompt": "Add Overseerr (media request management) integration to reel-life, following the exact same pattern as the existing Sonarr integration.\n\n## Architecture pattern (follow exactly)\n\n1. **Create `internal/overseerr/client.go`** — Define a `Client` interface and `HTTPClient` implementation, mirroring `internal/sonarr/client.go`. Use Overseerr's v1 API. Auth uses `X-Api-Key` header just like Sonarr.\n\n2. **Create `internal/overseerr/types.go`** — JSON-serializable structs for Overseerr API responses.\n\n3. **Add tools in `internal/agent/tools.go`** — Add input structs and tool definitions. Use `generateSchema[T]()`. Mark destructive tools.\n\n4. **Add dispatch in `internal/agent/agent.go`** — Add case statements in `dispatchTool()`. Agent struct needs `overseerr overseerr.Client` field. Update constructors.\n\n5. **Update config in `internal/config/config.go`** — Add `OverseerrConfig` struct, env var overrides (`OVERSEERR_API_KEY`, `OVERSEERR_URL`).\n\n6. **Wire in `cmd/reel-life/main.go`** — Instantiate client, pass to agent.\n\n7. **Update system prompt** to mention request management capabilities.\n\n## Overseerr tools to implement\n\nOverseerr handles media requests from users (request → approve → auto-sends to Sonarr/Radarr):\n- `list_requests` — List pending/approved/declined requests (GET /api/v1/request?take=20\u0026skip=0\u0026filter=pending|approved|all)\n- `approve_request` — Approve a pending request (POST /api/v1/request/{id}/approve) — DESTRUCTIVE\n- `decline_request` — Decline a pending request (POST /api/v1/request/{id}/decline) — DESTRUCTIVE\n- `get_request_count` — Get counts by status (GET /api/v1/request/count)\n- `search_media` — Search for media in Overseerr (GET /api/v1/search?query=...\u0026page=1)\n\n## Key Overseerr API details\n- API base path is /api/v1\n- Request struct has: id, status (1=pending, 2=approved, 3=declined), type (\"movie\"/\"tv\"), media (nested with tmdbId, tvdbId, status), requestedBy (user info), createdAt\n- Search results have: page, totalPages, totalResults, results[] with mediaType, id, title/name, overview, posterPath\n- RequestCount has: pending, approved, declined, total\n- Auth: X-Api-Key header\n\n## Testing\n- Add tests in `internal/overseerr/client_test.go` using `net/http/httptest`\n- Run `go test ./...` and `go vet ./...` before creating PR\n- Make sure all existing tests still pass\n\n## Constraints\n- Do NOT modify the Sonarr integration\n- Follow existing code style exactly\n- Overseerr default port is 5055 (use as default base_url: http://localhost:5055)",
+  "issue": null,
+  "branch": "agent/20260402-1552-e251",
+  "worktree": "/tmp/klaus-sessions/reel-life/20260402-1552-e251",
+  "tmux_pane": "%9",
+  "budget": "5.00",
+  "log_file": "/home/patrick/.klaus/sessions/session-20260402-1452-db5c/logs/20260402-1552-e251.jsonl",
+  "created_at": "2026-04-02T15:52:18-04:00",
+  "cost_usd": 1.04750915,
+  "duration_ms": 209496,
+  "pr_url": "https://github.com/patflynn/reel-life/pull/15",
+  "target_repo": "reel-life",
+  "clone_dir": "/home/patrick/hack/reel-life"
+}
