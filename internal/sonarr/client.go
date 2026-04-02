@@ -113,7 +113,10 @@ func (c *HTTPClient) RemoveFailed(ctx context.Context, id int, blocklist bool) e
 }
 
 func (c *HTTPClient) url(path string) *url.URL {
-	u, _ := url.Parse(c.baseURL + path)
+	u, err := url.Parse(c.baseURL + path)
+	if err != nil {
+		panic(fmt.Sprintf("sonarr: failed to parse URL: %v", err))
+	}
 	return u
 }
 
@@ -152,7 +155,10 @@ func (c *HTTPClient) do(req *http.Request, out any) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("API error %d: failed to read response body: %w", resp.StatusCode, err)
+		}
 		return fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
 	}
 
