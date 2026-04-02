@@ -1,4 +1,4 @@
-package sonarr
+package radarr
 
 import (
 	"bytes"
@@ -11,17 +11,17 @@ import (
 	"strconv"
 )
 
-// Client defines the operations available against a Sonarr instance.
+// Client defines the operations available against a Radarr instance.
 type Client interface {
-	Search(ctx context.Context, term string) ([]Series, error)
-	Add(ctx context.Context, req AddSeriesRequest) (*Series, error)
+	Search(ctx context.Context, term string) ([]Movie, error)
+	Add(ctx context.Context, req AddMovieRequest) (*Movie, error)
 	Queue(ctx context.Context) (*QueuePage, error)
 	History(ctx context.Context, pageSize int) (*HistoryPage, error)
 	Health(ctx context.Context) ([]HealthCheck, error)
 	RemoveFailed(ctx context.Context, id int, blocklist bool) error
 }
 
-// HTTPClient implements Client using Sonarr's v3 REST API.
+// HTTPClient implements Client using Radarr's v3 REST API.
 type HTTPClient struct {
 	baseURL    string
 	apiKey     string
@@ -36,30 +36,30 @@ func NewClient(baseURL, apiKey string) *HTTPClient {
 	}
 }
 
-func (c *HTTPClient) Search(ctx context.Context, term string) ([]Series, error) {
-	u := c.url("/api/v3/series/lookup")
+func (c *HTTPClient) Search(ctx context.Context, term string) ([]Movie, error) {
+	u := c.url("/api/v3/movie/lookup")
 	q := u.Query()
 	q.Set("term", term)
 	u.RawQuery = q.Encode()
 
-	var result []Series
+	var result []Movie
 	if err := c.get(ctx, u.String(), &result); err != nil {
-		return nil, fmt.Errorf("search series: %w", err)
+		return nil, fmt.Errorf("search movies: %w", err)
 	}
 	return result, nil
 }
 
-func (c *HTTPClient) Add(ctx context.Context, req AddSeriesRequest) (*Series, error) {
-	u := c.url("/api/v3/series")
+func (c *HTTPClient) Add(ctx context.Context, req AddMovieRequest) (*Movie, error) {
+	u := c.url("/api/v3/movie")
 
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("marshal add request: %w", err)
 	}
 
-	var result Series
+	var result Movie
 	if err := c.post(ctx, u.String(), body, &result); err != nil {
-		return nil, fmt.Errorf("add series: %w", err)
+		return nil, fmt.Errorf("add movie: %w", err)
 	}
 	return &result, nil
 }
@@ -115,7 +115,7 @@ func (c *HTTPClient) RemoveFailed(ctx context.Context, id int, blocklist bool) e
 func (c *HTTPClient) url(path string) *url.URL {
 	u, err := url.Parse(c.baseURL + path)
 	if err != nil {
-		panic(fmt.Sprintf("sonarr: failed to parse URL: %v", err))
+		panic(fmt.Sprintf("radarr: failed to parse URL: %v", err))
 	}
 	return u
 }

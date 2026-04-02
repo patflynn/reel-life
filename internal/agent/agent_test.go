@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"testing"
 
+	"github.com/patflynn/reel-life/internal/radarr"
 	"github.com/patflynn/reel-life/internal/sonarr"
 )
 
@@ -36,13 +37,40 @@ func (m *mockSonarr) RemoveFailed(_ context.Context, _ int, _ bool) error {
 	return nil
 }
 
+// mockRadarr implements radarr.Client for agent testing.
+type mockRadarr struct {
+	searchResult  []radarr.Movie
+	healthResult  []radarr.HealthCheck
+	queueResult   *radarr.QueuePage
+	historyResult *radarr.HistoryPage
+}
+
+func (m *mockRadarr) Search(_ context.Context, _ string) ([]radarr.Movie, error) {
+	return m.searchResult, nil
+}
+func (m *mockRadarr) Add(_ context.Context, req radarr.AddMovieRequest) (*radarr.Movie, error) {
+	return &radarr.Movie{ID: 1, Title: req.Title, TMDBID: req.TMDBID}, nil
+}
+func (m *mockRadarr) Queue(_ context.Context) (*radarr.QueuePage, error) {
+	return m.queueResult, nil
+}
+func (m *mockRadarr) History(_ context.Context, _ int) (*radarr.HistoryPage, error) {
+	return m.historyResult, nil
+}
+func (m *mockRadarr) Health(_ context.Context) ([]radarr.HealthCheck, error) {
+	return m.healthResult, nil
+}
+func (m *mockRadarr) RemoveFailed(_ context.Context, _ int, _ bool) error {
+	return nil
+}
+
 func TestDispatchSearchSeries(t *testing.T) {
 	mock := &mockSonarr{
 		searchResult: []sonarr.Series{
 			{ID: 1, Title: "Breaking Bad", Year: 2008, TVDBID: 81189},
 		},
 	}
-	a := &Agent{sonarr: mock, logger: slog.Default()}
+	a := &Agent{sonarr: mock, radarr: &mockRadarr{}, logger: slog.Default()}
 
 	input, _ := json.Marshal(searchSeriesInput{Term: "breaking bad"})
 	result, isErr := a.dispatchTool(context.Background(), "search_series", input)
@@ -65,7 +93,7 @@ func TestDispatchCheckHealth(t *testing.T) {
 			{Source: "IndexerCheck", Type: "warning", Message: "test warning"},
 		},
 	}
-	a := &Agent{sonarr: mock, logger: slog.Default()}
+	a := &Agent{sonarr: mock, radarr: &mockRadarr{}, logger: slog.Default()}
 
 	input, _ := json.Marshal(struct{}{})
 	result, isErr := a.dispatchTool(context.Background(), "check_health", input)
@@ -84,7 +112,7 @@ func TestDispatchCheckHealth(t *testing.T) {
 
 func TestDispatchRemoveFailed(t *testing.T) {
 	mock := &mockSonarr{}
-	a := &Agent{sonarr: mock, logger: slog.Default()}
+	a := &Agent{sonarr: mock, radarr: &mockRadarr{}, logger: slog.Default()}
 
 	input, _ := json.Marshal(removeFailedInput{ID: 42, Blocklist: true})
 	result, isErr := a.dispatchTool(context.Background(), "remove_failed", input)
@@ -100,7 +128,7 @@ func TestDispatchRemoveFailed(t *testing.T) {
 }
 
 func TestDispatchUnknownTool(t *testing.T) {
-	a := &Agent{sonarr: &mockSonarr{}}
+	a := &Agent{sonarr: &mockSonarr{}, radarr: &mockRadarr{}}
 
 	result, isErr := a.dispatchTool(context.Background(), "nonexistent", json.RawMessage("{}"))
 	if !isErr {
@@ -121,7 +149,7 @@ func TestDispatchGetQueue(t *testing.T) {
 			},
 		},
 	}
-	a := &Agent{sonarr: mock, logger: slog.Default()}
+	a := &Agent{sonarr: mock, radarr: &mockRadarr{}, logger: slog.Default()}
 
 	input, _ := json.Marshal(struct{}{})
 	result, isErr := a.dispatchTool(context.Background(), "get_queue", input)
@@ -140,7 +168,7 @@ func TestDispatchGetQueue(t *testing.T) {
 
 func TestDispatchAddSeries(t *testing.T) {
 	mock := &mockSonarr{}
-	a := &Agent{sonarr: mock, logger: slog.Default()}
+	a := &Agent{sonarr: mock, radarr: &mockRadarr{}, logger: slog.Default()}
 
 	input, _ := json.Marshal(addSeriesInput{
 		Title:            "Breaking Bad",
@@ -171,7 +199,7 @@ func TestDispatchGetHistory(t *testing.T) {
 			},
 		},
 	}
-	a := &Agent{sonarr: mock, logger: slog.Default()}
+	a := &Agent{sonarr: mock, radarr: &mockRadarr{}, logger: slog.Default()}
 
 	input, _ := json.Marshal(getHistoryInput{PageSize: 10})
 	result, isErr := a.dispatchTool(context.Background(), "get_history", input)
@@ -180,6 +208,145 @@ func TestDispatchGetHistory(t *testing.T) {
 	}
 
 	var history sonarr.HistoryPage
+	if err := json.Unmarshal([]byte(result), &history); err != nil {
+		t.Fatalf("unmarshal result: %v", err)
+	}
+	if history.TotalRecords != 1 {
+		t.Errorf("expected 1 record, got %d", history.TotalRecords)
+	}
+}
+
+func TestDispatchSearchMovies(t *testing.T) {
+	mock := &mockRadarr{
+		searchResult: []radarr.Movie{
+			{ID: 1, Title: "Inception", Year: 2010, TMDBID: 27205},
+		},
+	}
+	a := &Agent{sonarr: &mockSonarr{}, radarr: mock, logger: slog.Default()}
+
+	input, _ := json.Marshal(searchMoviesInput{Term: "inception"})
+	result, isErr := a.dispatchTool(context.Background(), "search_movies", input)
+	if isErr {
+		t.Fatalf("unexpected error: %s", result)
+	}
+
+	var movies []radarr.Movie
+	if err := json.Unmarshal([]byte(result), &movies); err != nil {
+		t.Fatalf("unmarshal result: %v", err)
+	}
+	if len(movies) != 1 || movies[0].Title != "Inception" {
+		t.Errorf("unexpected result: %s", result)
+	}
+}
+
+func TestDispatchAddMovie(t *testing.T) {
+	mock := &mockRadarr{}
+	a := &Agent{sonarr: &mockSonarr{}, radarr: mock, logger: slog.Default()}
+
+	input, _ := json.Marshal(addMovieInput{
+		Title:            "Inception",
+		TMDBID:           27205,
+		QualityProfileID: 1,
+		RootFolderPath:   "/movies",
+	})
+	result, isErr := a.dispatchTool(context.Background(), "add_movie", input)
+	if isErr {
+		t.Fatalf("unexpected error: %s", result)
+	}
+
+	var movie radarr.Movie
+	if err := json.Unmarshal([]byte(result), &movie); err != nil {
+		t.Fatalf("unmarshal result: %v", err)
+	}
+	if movie.Title != "Inception" {
+		t.Errorf("Title = %q, want %q", movie.Title, "Inception")
+	}
+}
+
+func TestDispatchGetMovieQueue(t *testing.T) {
+	mock := &mockRadarr{
+		queueResult: &radarr.QueuePage{
+			TotalRecords: 1,
+			Records: []radarr.QueueItem{
+				{ID: 1, Title: "Inception.2010.1080p", Status: "downloading"},
+			},
+		},
+	}
+	a := &Agent{sonarr: &mockSonarr{}, radarr: mock, logger: slog.Default()}
+
+	input, _ := json.Marshal(struct{}{})
+	result, isErr := a.dispatchTool(context.Background(), "get_movie_queue", input)
+	if isErr {
+		t.Fatalf("unexpected error: %s", result)
+	}
+
+	var queue radarr.QueuePage
+	if err := json.Unmarshal([]byte(result), &queue); err != nil {
+		t.Fatalf("unmarshal result: %v", err)
+	}
+	if queue.TotalRecords != 1 {
+		t.Errorf("expected 1 record, got %d", queue.TotalRecords)
+	}
+}
+
+func TestDispatchCheckMovieHealth(t *testing.T) {
+	mock := &mockRadarr{
+		healthResult: []radarr.HealthCheck{
+			{Source: "IndexerCheck", Type: "warning", Message: "test warning"},
+		},
+	}
+	a := &Agent{sonarr: &mockSonarr{}, radarr: mock, logger: slog.Default()}
+
+	input, _ := json.Marshal(struct{}{})
+	result, isErr := a.dispatchTool(context.Background(), "check_movie_health", input)
+	if isErr {
+		t.Fatalf("unexpected error: %s", result)
+	}
+
+	var checks []radarr.HealthCheck
+	if err := json.Unmarshal([]byte(result), &checks); err != nil {
+		t.Fatalf("unmarshal result: %v", err)
+	}
+	if len(checks) != 1 {
+		t.Errorf("expected 1 check, got %d", len(checks))
+	}
+}
+
+func TestDispatchRemoveFailedMovie(t *testing.T) {
+	mock := &mockRadarr{}
+	a := &Agent{sonarr: &mockSonarr{}, radarr: mock, logger: slog.Default()}
+
+	input, _ := json.Marshal(removeFailedMovieInput{ID: 42, Blocklist: true})
+	result, isErr := a.dispatchTool(context.Background(), "remove_failed_movie", input)
+	if isErr {
+		t.Fatalf("unexpected error: %s", result)
+	}
+
+	var status map[string]string
+	json.Unmarshal([]byte(result), &status)
+	if status["status"] != "removed" {
+		t.Errorf("expected status=removed, got %s", result)
+	}
+}
+
+func TestDispatchGetMovieHistory(t *testing.T) {
+	mock := &mockRadarr{
+		historyResult: &radarr.HistoryPage{
+			TotalRecords: 1,
+			Records: []radarr.HistoryRecord{
+				{ID: 1, SourceTitle: "Inception.2010.1080p", EventType: "grabbed"},
+			},
+		},
+	}
+	a := &Agent{sonarr: &mockSonarr{}, radarr: mock, logger: slog.Default()}
+
+	input, _ := json.Marshal(getMovieHistoryInput{PageSize: 10})
+	result, isErr := a.dispatchTool(context.Background(), "get_movie_history", input)
+	if isErr {
+		t.Fatalf("unexpected error: %s", result)
+	}
+
+	var history radarr.HistoryPage
 	if err := json.Unmarshal([]byte(result), &history); err != nil {
 		t.Fatalf("unmarshal result: %v", err)
 	}
