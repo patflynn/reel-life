@@ -89,7 +89,7 @@ in
 
     agentHistorySize = lib.mkOption {
       type = lib.types.int;
-      default = 20;
+      default = 40;
       description = "Maximum conversation turns per chat (0 to disable history)";
     };
 

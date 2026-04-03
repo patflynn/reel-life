@@ -100,7 +100,7 @@ func Load(path string) (*Config, error) {
 		Agent: AgentConfig{
 			Model:       "claude-sonnet-4-5-20250929",
 			MaxTokens:   4096,
-			HistorySize: 50,
+			HistorySize: 40,
 		},
 		Monitor: MonitorConfig{
 			Enabled:  true,
