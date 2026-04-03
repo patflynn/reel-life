@@ -7,12 +7,22 @@ type Request struct {
 	Media       MediaInfo    `json:"media"`
 	RequestedBy UserInfo     `json:"requestedBy"`
 	CreatedAt   string       `json:"createdAt"`
+	UpdatedAt   string       `json:"updatedAt"`
+	Seasons     []SeasonInfo `json:"seasons,omitempty"`
 }
 
 type MediaInfo struct {
-	TMDBID int `json:"tmdbId"`
-	TVDBID int `json:"tvdbId"`
-	Status int `json:"status"`
+	TMDBID            int    `json:"tmdbId"`
+	TVDBID            int    `json:"tvdbId"`
+	Status            int    `json:"status"`
+	MediaType         string `json:"mediaType"`
+	ExternalServiceID int    `json:"externalServiceId,omitempty"`
+}
+
+type SeasonInfo struct {
+	ID           int `json:"id"`
+	SeasonNumber int `json:"seasonNumber"`
+	Status       int `json:"status"`
 }
 
 type UserInfo struct {

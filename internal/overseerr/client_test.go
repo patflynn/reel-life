@@ -144,6 +144,87 @@ func TestSearchMedia(t *testing.T) {
 	}
 }
 
+func TestGetRequest(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("expected GET, got %s", r.Method)
+		}
+		if r.URL.Path != "/api/v1/request/7" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		json.NewEncoder(w).Encode(Request{
+			ID:     7,
+			Status: 2,
+			Type:   "movie",
+			Media:  MediaInfo{TMDBID: 603, MediaType: "movie"},
+			RequestedBy: UserInfo{DisplayName: "bob"},
+			CreatedAt:   "2026-01-01T00:00:00.000Z",
+			UpdatedAt:   "2026-01-02T00:00:00.000Z",
+		})
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL, "test-key")
+	req, err := client.GetRequest(context.Background(), 7)
+	if err != nil {
+		t.Fatalf("GetRequest() error: %v", err)
+	}
+	if req.ID != 7 {
+		t.Errorf("ID = %d, want 7", req.ID)
+	}
+	if req.UpdatedAt != "2026-01-02T00:00:00.000Z" {
+		t.Errorf("UpdatedAt = %q, want %q", req.UpdatedAt, "2026-01-02T00:00:00.000Z")
+	}
+}
+
+func TestDeleteRequest(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Errorf("expected DELETE, got %s", r.Method)
+		}
+		if r.URL.Path != "/api/v1/request/42" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		if r.Header.Get("X-Api-Key") != "test-key" {
+			t.Errorf("missing or wrong API key header")
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL, "test-key")
+	err := client.DeleteRequest(context.Background(), 42)
+	if err != nil {
+		t.Fatalf("DeleteRequest() error: %v", err)
+	}
+}
+
+func TestRetryRequest(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		if r.URL.Path != "/api/v1/request/5/retry" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		json.NewEncoder(w).Encode(Request{
+			ID:     5,
+			Status: 1,
+			Type:   "tv",
+		})
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL, "test-key")
+	req, err := client.RetryRequest(context.Background(), 5)
+	if err != nil {
+		t.Fatalf("RetryRequest() error: %v", err)
+	}
+	if req.ID != 5 {
+		t.Errorf("ID = %d, want 5", req.ID)
+	}
+}
+
 func TestOverseerrAPIError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)

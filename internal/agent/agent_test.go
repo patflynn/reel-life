@@ -172,6 +172,15 @@ func (m *mockOverseerr) DeclineRequest(_ context.Context, _ int) error {
 func (m *mockOverseerr) GetRequestCount(_ context.Context) (*overseerr.RequestCount, error) {
 	return m.requestCount, nil
 }
+func (m *mockOverseerr) GetRequest(_ context.Context, _ int) (*overseerr.Request, error) {
+	return nil, nil
+}
+func (m *mockOverseerr) DeleteRequest(_ context.Context, _ int) error {
+	return nil
+}
+func (m *mockOverseerr) RetryRequest(_ context.Context, _ int) (*overseerr.Request, error) {
+	return nil, nil
+}
 func (m *mockOverseerr) SearchMedia(_ context.Context, _ string, _ int) (*overseerr.SearchResults, error) {
 	return m.searchResult, nil
 }
