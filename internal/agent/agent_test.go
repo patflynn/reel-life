@@ -76,6 +76,9 @@ func (m *mockSonarr) GetRootFolders(_ context.Context) ([]sonarr.RootFolder, err
 func (m *mockSonarr) GetDownloadClients(_ context.Context) ([]sonarr.DownloadClient, error) {
 	return m.downloadClientsResult, nil
 }
+func (m *mockSonarr) UpdateSeries(_ context.Context, series *sonarr.Series) (*sonarr.Series, error) {
+	return series, nil
+}
 
 // mockRadarr implements radarr.Client for agent testing.
 type mockRadarr struct {

@@ -53,6 +53,9 @@ func (m *mockSonarr) GetRootFolders(_ context.Context) ([]sonarr.RootFolder, err
 func (m *mockSonarr) GetDownloadClients(_ context.Context) ([]sonarr.DownloadClient, error) {
 	return nil, nil
 }
+func (m *mockSonarr) UpdateSeries(_ context.Context, series *sonarr.Series) (*sonarr.Series, error) {
+	return series, nil
+}
 
 // mockNotifier records sent messages.
 type mockNotifier struct {

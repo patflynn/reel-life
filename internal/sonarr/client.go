@@ -27,6 +27,7 @@ type Client interface {
 	GetBlocklist(ctx context.Context, pageSize int) (*BlocklistPage, error)
 	GetRootFolders(ctx context.Context) ([]RootFolder, error)
 	GetDownloadClients(ctx context.Context) ([]DownloadClient, error)
+	UpdateSeries(ctx context.Context, series *Series) (*Series, error)
 }
 
 // HTTPClient implements Client using Sonarr's v3 REST API.
@@ -224,6 +225,21 @@ func (c *HTTPClient) GetDownloadClients(ctx context.Context) ([]DownloadClient, 
 	return result, nil
 }
 
+func (c *HTTPClient) UpdateSeries(ctx context.Context, series *Series) (*Series, error) {
+	u := c.url(fmt.Sprintf("/api/v3/series/%d", series.ID))
+
+	body, err := json.Marshal(series)
+	if err != nil {
+		return nil, fmt.Errorf("marshal update series: %w", err)
+	}
+
+	var result Series
+	if err := c.put(ctx, u.String(), body, &result); err != nil {
+		return nil, fmt.Errorf("update series: %w", err)
+	}
+	return &result, nil
+}
+
 func (c *HTTPClient) url(path string) *url.URL {
 	u, err := url.Parse(c.baseURL + path)
 	if err != nil {
@@ -242,6 +258,15 @@ func (c *HTTPClient) get(ctx context.Context, rawURL string, out any) error {
 
 func (c *HTTPClient) post(ctx context.Context, rawURL string, body []byte, out any) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, rawURL, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	return c.do(req, out)
+}
+
+func (c *HTTPClient) put(ctx context.Context, rawURL string, body []byte, out any) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, rawURL, bytes.NewReader(body))
 	if err != nil {
 		return err
 	}

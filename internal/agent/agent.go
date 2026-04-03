@@ -28,6 +28,7 @@ Your capabilities:
 - Monitor system health and report any issues
 - Remove failed downloads and manage the blocklist
 - Get detailed series info and episode status
+- Update season monitoring settings (enable/disable monitoring per season)
 - Search for available releases and see why they were accepted/rejected
 - View Sonarr logs for debugging
 - Check quality profiles, blocklist, root folders, and download client status
@@ -379,6 +380,28 @@ func (a *Agent) dispatchTool(ctx context.Context, name string, rawInput json.Raw
 
 	case "get_download_clients":
 		result, err = a.sonarr.GetDownloadClients(ctx)
+
+	case "update_series_monitoring":
+		var input updateSeriesMonitoringInput
+		if err := json.Unmarshal(rawInput, &input); err != nil {
+			return jsonError("invalid input: " + err.Error()), true
+		}
+		series, getErr := a.sonarr.GetSeries(ctx, input.SeriesID)
+		if getErr != nil {
+			return jsonError(getErr.Error()), true
+		}
+		found := false
+		for i, s := range series.Seasons {
+			if s.SeasonNumber == input.SeasonNumber {
+				series.Seasons[i].Monitored = input.Monitored
+				found = true
+				break
+			}
+		}
+		if !found {
+			return jsonError(fmt.Sprintf("season %d not found in series %q", input.SeasonNumber, series.Title)), true
+		}
+		result, err = a.sonarr.UpdateSeries(ctx, series)
 
 	case "search_movies", "add_movie", "get_movie_queue", "get_movie_history", "check_movie_health", "remove_failed_movie":
 		if a.radarr == nil {
