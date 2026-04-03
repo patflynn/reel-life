@@ -164,10 +164,7 @@ in
         base_url: "${cfg.sonarrUrl}"
       chat:
         backend: "${cfg.chatBackend}"
-    '' + (lib.optionalString (cfg.chatBackend == "telegram") ''
-        telegram_chat_id: ${toString cfg.chatTelegramChatID}
-        telegram_allowed_users: [${lib.concatMapStringsSep ", " toString cfg.chatTelegramAllowedUsers}]
-    '') + ''
+    '' + (lib.optionalString (cfg.chatBackend == "telegram") "  telegram_chat_id: ${toString cfg.chatTelegramChatID}\n  telegram_allowed_users: [${lib.concatMapStringsSep ", " toString cfg.chatTelegramAllowedUsers}]\n") + ''
       agent:
         model: "${cfg.agentModel}"
         max_tokens: ${toString cfg.agentMaxTokens}
