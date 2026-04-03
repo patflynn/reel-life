@@ -135,6 +135,12 @@ in
       description = "Telegram chat ID for proactive alerts, 0 for auto-capture";
     };
 
+    chatTelegramAdminChatID = lib.mkOption {
+      type = lib.types.int;
+      default = 0;
+      description = "Telegram chat ID for admin/health notifications (0 = use main chat ID)";
+    };
+
     chatTelegramAllowedUsers = lib.mkOption {
       type = lib.types.listOf lib.types.int;
       default = [ ];
@@ -219,6 +225,7 @@ in
         backend = cfg.chatBackend;
       } // lib.optionalAttrs (cfg.chatBackend == "telegram") {
         telegram_chat_id = cfg.chatTelegramChatID;
+        telegram_admin_chat_id = cfg.chatTelegramAdminChatID;
         telegram_allowed_users = cfg.chatTelegramAllowedUsers;
       };
       agent = {

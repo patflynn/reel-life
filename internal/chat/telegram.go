@@ -28,6 +28,7 @@ type BotAPI interface {
 type Telegram struct {
 	bot          BotAPI
 	chatID       int64
+	adminChatID  int64
 	allowedUsers []int64
 	logger       *slog.Logger
 	history      *agent.HistoryStore
@@ -37,7 +38,7 @@ type Telegram struct {
 }
 
 // NewTelegram creates a Telegram adapter and verifies the bot token is valid.
-func NewTelegram(token string, chatID int64, allowedUsers []int64, logger *slog.Logger, history *agent.HistoryStore) (*Telegram, error) {
+func NewTelegram(token string, chatID int64, adminChatID int64, allowedUsers []int64, logger *slog.Logger, history *agent.HistoryStore) (*Telegram, error) {
 	bot, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
 		return nil, fmt.Errorf("invalid telegram bot token: %w", err)
@@ -46,6 +47,7 @@ func NewTelegram(token string, chatID int64, allowedUsers []int64, logger *slog.
 	return &Telegram{
 		bot:          bot,
 		chatID:       chatID,
+		adminChatID:  adminChatID,
 		allowedUsers: allowedUsers,
 		logger:       logger,
 		history:      history,
@@ -54,10 +56,11 @@ func NewTelegram(token string, chatID int64, allowedUsers []int64, logger *slog.
 }
 
 // NewTelegramWithBot creates a Telegram adapter with a pre-configured BotAPI (for testing).
-func NewTelegramWithBot(bot BotAPI, chatID int64, allowedUsers []int64, logger *slog.Logger, history *agent.HistoryStore) *Telegram {
+func NewTelegramWithBot(bot BotAPI, chatID int64, adminChatID int64, allowedUsers []int64, logger *slog.Logger, history *agent.HistoryStore) *Telegram {
 	return &Telegram{
 		bot:          bot,
 		chatID:       chatID,
+		adminChatID:  adminChatID,
 		allowedUsers: allowedUsers,
 		logger:       logger,
 		history:      history,
@@ -109,6 +112,40 @@ func (t *Telegram) SendThread(ctx context.Context, message string, threadKey str
 		}
 	}
 	t.logger.Debug("thread message sent to telegram", "thread_key", threadKey)
+	return nil
+}
+
+// SendAdmin sends a message to the admin chat ID if configured, otherwise
+// falls back to SendThread on the main chat ID. Messages with the same
+// threadKey are threaded together via reply chains.
+func (t *Telegram) SendAdmin(ctx context.Context, message string, threadKey string) error {
+	if t.adminChatID == 0 {
+		return t.SendThread(ctx, message, threadKey)
+	}
+
+	t.mu.Lock()
+	replyTo := t.threads[threadKey]
+	t.mu.Unlock()
+
+	chunks := splitMessage(message, telegramMaxMessageLength)
+	for _, chunk := range chunks {
+		msg := tgbotapi.NewMessage(t.adminChatID, chunk)
+		if replyTo != 0 {
+			msg.ReplyToMessageID = replyTo
+		}
+		sent, err := t.bot.Send(msg)
+		if err != nil {
+			return fmt.Errorf("send telegram admin message: %w", err)
+		}
+		// Track the first message in a new thread so subsequent calls can reply to it.
+		if replyTo == 0 {
+			replyTo = sent.MessageID
+			t.mu.Lock()
+			t.threads[threadKey] = replyTo
+			t.mu.Unlock()
+		}
+	}
+	t.logger.Debug("admin message sent to telegram", "admin_chat_id", t.adminChatID, "thread_key", threadKey)
 	return nil
 }
 

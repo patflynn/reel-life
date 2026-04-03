@@ -98,6 +98,7 @@ overseerr:
 chat:
   backend: telegram
   telegram_allowed_users: [123456789]
+  # telegram_admin_chat_id: 0  # separate chat for health alerts (0 = use main chat)
 
 agent:
   model: claude-sonnet-4-5-20250929

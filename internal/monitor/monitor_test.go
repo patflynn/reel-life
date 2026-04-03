@@ -76,6 +76,14 @@ func (n *mockNotifier) SendThread(_ context.Context, msg string, thread string) 
 	return nil
 }
 
+func (n *mockNotifier) SendAdmin(_ context.Context, msg string, thread string) error {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.messages = append(n.messages, msg)
+	n.threads = append(n.threads, thread)
+	return nil
+}
+
 func TestMonitorAlertsOnNewIssues(t *testing.T) {
 	sonarrMock := &mockSonarr{
 		healthFn: func() ([]sonarr.HealthCheck, error) {

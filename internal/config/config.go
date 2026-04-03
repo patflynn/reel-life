@@ -68,6 +68,7 @@ type ChatConfig struct {
 	Space                string  `yaml:"space"`
 	ProjectNumber        string  `yaml:"project_number"`
 	TelegramChatID       int64   `yaml:"telegram_chat_id"`
+	TelegramAdminChatID  int64   `yaml:"telegram_admin_chat_id"`
 	TelegramAllowedUsers []int64 `yaml:"telegram_allowed_users"`
 }
 

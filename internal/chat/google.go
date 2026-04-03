@@ -38,6 +38,10 @@ func (g *GoogleChat) Send(ctx context.Context, message string) error {
 	return g.post(ctx, g.webhookURL, chatMessage{Text: message})
 }
 
+func (g *GoogleChat) SendAdmin(ctx context.Context, message string, threadKey string) error {
+	return g.SendThread(ctx, message, threadKey)
+}
+
 func (g *GoogleChat) SendThread(ctx context.Context, message string, threadKey string) error {
 	url := g.webhookURL + "&messageReplyOption=REPLY_MESSAGE_FALLBACK_TO_NEW_THREAD"
 	msg := chatMessage{
