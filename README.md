@@ -1,69 +1,52 @@
 # reel-life
 
-An AI-powered chatops agent for media curation and quality control. reel-life connects Claude to your media management stack (starting with Sonarr) and communicates through Telegram or Google Chat. It can respond to natural language requests like "search for Breaking Bad" or "what's in the download queue?", and it proactively monitors your services for health issues — alerting you when something goes wrong.
+An AI-powered media curation agent for home media servers. reel-life connects Claude to your *arr stack (Sonarr, Radarr, Prowlarr, Overseerr) and communicates through Telegram or Google Chat. It handles natural language requests, proactively monitors service health, and learns your preferences over time through a persistent notebook.
 
-Claude operates as a constrained agent: it can only call a defined set of media API tools. No filesystem access, no shell commands, no arbitrary network calls. It reasons about what to do, calls the right Sonarr endpoint, and reports back.
+Claude operates as a constrained agent: it can only call a defined set of media API tools. No filesystem access, no shell commands, no arbitrary network calls.
 
 ## Architecture
 
 ```
-┌─────────────┐     webhook      ┌──────────────┐     API calls     ┌─────────┐
-│ Google Chat  │ ───────────────→ │  reel-life   │ ───────────────→  │ Sonarr  │
-│   Space      │ ←─────────────── │              │ ←───────────────  │  (v3)   │
-└─────────────┘   notifications   │  ┌────────┐  │   JSON responses  └─────────┘
-                                  │  │ Claude │  │
-                                  │  │ Agent  │  │
+                                  ┌──────────────┐
+┌─────────────┐     messages      │  reel-life   │     API calls     ┌──────────┐
+│  Telegram   │ ←───────────────→ │              │ ───────────────→  │  Sonarr  │
+│  / GChat    │                   │  ┌────────┐  │ ───────────────→  │  Radarr  │
+└─────────────┘                   │  │ Claude │  │ ───────────────→  │ Prowlarr │
+                                  │  │ Agent  │  │ ───────────────→  │ Overseerr│
+                                  │  └────────┘  │                   └──────────┘
+                                  │  ┌────────┐  │
+                                  │  │Monitor │  │  polls health every 5m
                                   │  └────────┘  │
                                   │  ┌────────┐  │
-                                  │  │Monitor │──┘ polls health every 5m
-                                  │  │ Loop   │
-                                  │  └────────┘
+                                  │  │Notebook│  │  persistent memory
+                                  │  └────────┘  │
                                   └──────────────┘
 ```
 
-The **agent** handles reactive requests — a user asks something in Google Chat, Claude figures out which Sonarr tool to call, and sends the result back. The **monitor** handles proactive alerts — it polls Sonarr health on a schedule, deduplicates issues, and notifies your chat space when something new breaks (or resolves).
-
 ## Features
 
-- **Reactive**: Natural language requests — "search for Breaking Bad", "what's downloading?", "check system health" *(agent logic is implemented; bidirectional Google Chat webhook is [on the roadmap](docs/google-chat-setup.md#bidirectional-webhooks-not-yet-implemented))*
-- **Proactive**: Automatic alerts for health issues, failed downloads, and indexer problems *(active now via outgoing webhooks)*
-- **Constrained**: The AI agent can ONLY call defined media API tools — no filesystem, no shell, no arbitrary network
-- **Pluggable**: Multiple chat backends — Telegram (bidirectional, recommended for personal use) and Google Chat (webhook or API)
+- **Natural language**: "search for Breaking Bad", "what's downloading?", "add that movie", "approve the pending request"
+- **Full *arr stack**: Sonarr (TV), Radarr (movies), Prowlarr (indexers), Overseerr (requests)
+- **Proactive monitoring**: Automatic alerts for health issues, failed downloads, and indexer problems
+- **Conversation history**: Sliding window per chat — the agent remembers context within a conversation
+- **Persistent notebook**: Pinned notes (always in context) and reference notes (on-demand lookup) that persist across restarts
+- **Constrained**: The agent can only call defined media API tools — no filesystem, no shell, no arbitrary network
+- **Chat backends**: Telegram (bidirectional, recommended) and Google Chat (webhook or Chat API)
+- **NixOS module**: Declarative deployment with systemd hardening, agenix secrets, and sandboxing
 
-## Supported services
+## Agent tools
 
-| Service   | Status |
-|-----------|--------|
-| Sonarr    | Implemented — search, add, queue, history, health, remove failed |
-| Radarr    | Planned |
-| Prowlarr  | Planned |
-| Overseerr | Planned |
-
-## Agent capabilities
-
-The Claude agent has access to these Sonarr tools:
-
-| Tool | What it does |
-|------|-------------|
-| `search_series` | Search for TV series by name |
-| `add_series` | Add a series to Sonarr for monitoring and downloading |
-| `get_queue` | Show active and pending downloads |
-| `get_history` | Show recent download history (completed, failed, imported) |
-| `check_health` | Check Sonarr system health for warnings and errors |
-| `remove_failed` | Remove a failed download from the queue, optionally blocklisting |
-
-## Prerequisites
-
-- **Anthropic API key** — [console.anthropic.com](https://console.anthropic.com/)
-- **Running Sonarr instance** with API access enabled (v3 API)
-- **Telegram bot** (via [@BotFather](https://t.me/botfather)) or **Google Chat space** with an incoming webhook URL
-- **For NixOS deployment**: NixOS with flakes enabled, [agenix](https://github.com/ryantm/agenix) for secrets management
+| Integration | Tools |
+|-------------|-------|
+| **Sonarr** | `search_series`, `add_series`, `get_queue`, `get_history`, `check_health`, `remove_failed` |
+| **Radarr** | `search_movies`, `add_movie`, `get_movie_queue`, `get_movie_history`, `check_movie_health`, `remove_failed_movie` |
+| **Prowlarr** | `list_indexers`, `test_indexer`, `get_indexer_stats`, `check_indexer_health`, `search_indexers` |
+| **Overseerr** | `list_requests`, `approve_request`, `decline_request`, `get_request_count`, `search_media` |
+| **Notebook** | `notebook_write`, `notebook_read`, `notebook_list`, `notebook_delete` |
 
 ## Quick start
 
-There are three ways to deploy reel-life. See the [setup guide](docs/setup-guide.md) for detailed instructions.
-
-### Telegram (recommended for personal use)
+### Telegram (recommended)
 
 ```bash
 go build ./cmd/reel-life
@@ -75,87 +58,91 @@ export TELEGRAM_BOT_TOKEN=your-bot-token
 
 Set `chat.backend: telegram` in your config and add your Telegram user ID to `telegram_allowed_users`. See the [Telegram setup guide](docs/telegram-setup.md) for details.
 
-### NixOS service (recommended for NixOS hosts)
+### NixOS service
 
-Add to your flake inputs, import the module, configure the service, and deploy with `nixos-rebuild switch`. Secrets are managed with agenix. See [full NixOS setup instructions](docs/setup-guide.md#method-1-nixos-service).
+Add to your flake inputs, import the module, and configure:
 
-### Docker
-
-```bash
-docker build -t reel-life .
-docker run -p 8080:8080 \
-  -e ANTHROPIC_API_KEY=your-key \
-  -e SONARR_API_KEY=your-key \
-  -e GOOGLE_CHAT_WEBHOOK_URL=your-webhook \
-  -v $(pwd)/config.yaml:/config.yaml:ro \
-  reel-life -config /config.yaml
-```
-
-The container runs as non-root with a minimal distroless base image.
-
-### Binary
-
-```bash
-go build ./cmd/reel-life
-export ANTHROPIC_API_KEY=your-key
-export SONARR_API_KEY=your-key
-export GOOGLE_CHAT_WEBHOOK_URL=https://chat.googleapis.com/v1/spaces/.../messages?key=...&token=...
-./reel-life -config config.yaml
+```nix
+services.reel-life = {
+  enable = true;
+  chatBackend = "telegram";
+  sonarrUrl = "http://localhost:8989";
+  radarrUrl = "http://localhost:7878";
+  prowlarrUrl = "http://localhost:9696";
+  overseerrUrl = "http://localhost:5055";
+  chatTelegramAllowedUsers = [ 123456789 ];
+  notebookEnabled = true;
+  notebookPath = "/var/lib/reel-life/notebook.json";
+  environmentFiles = [
+    config.age.secrets.anthropic-key.path
+    config.age.secrets.sonarr-api-key.path
+    config.age.secrets.radarr-api-key.path
+    config.age.secrets.prowlarr-api-key.path
+    config.age.secrets.reel-life-telegram-token.path
+  ];
+};
 ```
 
 ## Configuration
 
-Copy `config.yaml.example` to `config.yaml`:
-
 ```yaml
 sonarr:
   base_url: http://localhost:8989
+radarr:
+  base_url: http://localhost:7878
+prowlarr:
+  base_url: http://localhost:9696
+overseerr:
+  base_url: http://localhost:5055
 
 chat:
-  backend: googlechat
+  backend: telegram
+  telegram_allowed_users: [123456789]
 
 agent:
   model: claude-sonnet-4-5-20250929
   max_tokens: 4096
+  history_size: 20  # conversation turns per chat (0 = disabled)
+
+notebook:
+  enabled: true
+  path: notebook.json
 
 monitor:
   enabled: true
   interval: 5m
 
 log:
-  level: info     # debug, info, warn, error
-  format: text    # text or json
+  level: info
+  format: text
 ```
 
-Secrets are always provided via environment variables — never put API keys in config.yaml:
+Secrets via environment variables:
 
-| Variable | Description |
-|----------|-------------|
-| `ANTHROPIC_API_KEY` | Claude API key (required) |
-| `SONARR_API_KEY` | Sonarr API key (required) |
-| `GOOGLE_CHAT_WEBHOOK_URL` | Google Chat webhook URL (required for googlechat backend) |
-| `TELEGRAM_BOT_TOKEN` | Telegram bot token (required for telegram backend) |
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `ANTHROPIC_API_KEY` | Yes | Claude API key |
+| `SONARR_API_KEY` | Yes | Sonarr API key |
+| `TELEGRAM_BOT_TOKEN` | Telegram | Bot token from @BotFather |
+| `RADARR_API_KEY` | No | Radarr API key (enables Radarr tools) |
+| `PROWLARR_API_KEY` | No | Prowlarr API key (enables Prowlarr tools) |
+| `OVERSEERR_API_KEY` | No | Overseerr API key (enables Overseerr tools) |
 
-The `SONARR_URL` environment variable can also override `sonarr.base_url` from the config file.
+URL overrides: `SONARR_URL`, `RADARR_URL`, `PROWLARR_URL`, `OVERSEERR_URL`.
 
 ## Documentation
 
-- [Setup guide](docs/setup-guide.md) — Detailed deployment instructions for all three methods
-- [Telegram setup](docs/telegram-setup.md) — Setting up the Telegram bot for personal use
-- [Google Chat setup](docs/google-chat-setup.md) — Creating and configuring the Google Chat webhook
-- [Sonarr setup](docs/sonarr-setup.md) — Connecting reel-life to your Sonarr instance
-- [Troubleshooting](docs/troubleshooting.md) — Common issues and how to fix them
+- [Setup guide](docs/setup-guide.md) — Deployment instructions
+- [Telegram setup](docs/telegram-setup.md) — Bot configuration
+- [Google Chat setup](docs/google-chat-setup.md) — Webhook and API setup
+- [Sonarr setup](docs/sonarr-setup.md) — Connecting to Sonarr
+- [Troubleshooting](docs/troubleshooting.md) — Common issues
 
 ## Development
 
 ```bash
+nix develop       # enter dev shell
 go test ./...     # run tests
 go build ./...    # verify compilation
 go vet ./...      # lint
-```
-
-Uses a Nix flake for development dependencies:
-
-```bash
-nix develop       # enter dev shell with go, gopls, golangci-lint
 ```
