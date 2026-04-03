@@ -1,0 +1,18 @@
+{
+  "id": "20260403-1810-692e",
+  "prompt": "PR #35 in reel-life has review comments from a trusted reviewer that need to be addressed. Check the review comments with: gh api repos/reel-life/pulls/35/comments",
+  "issue": null,
+  "pr": "35",
+  "branch": "agent/20260403-1806-e471",
+  "worktree": "/tmp/klaus-sessions/reel-life/20260403-1810-692e",
+  "tmux_pane": "%84",
+  "budget": "5.00",
+  "log_file": "/home/patrick/.klaus/sessions/session-20260403-1752-e050/logs/20260403-1810-692e.jsonl",
+  "created_at": "2026-04-03T18:10:52-04:00",
+  "cost_usd": 0.34301625,
+  "duration_ms": 57390,
+  "pr_url": "https://github.com/patflynn/reel-life/pull/35",
+  "type": "pr-fix",
+  "target_repo": "reel-life",
+  "clone_dir": "/home/patrick/hack/reel-life"
+}
