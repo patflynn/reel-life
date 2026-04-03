@@ -413,3 +413,100 @@ func TestHistory(t *testing.T) {
 		t.Errorf("TotalRecords = %d, want 1", history.TotalRecords)
 	}
 }
+
+func TestCommand(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		if r.URL.Path != "/api/v3/command" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		var cmd CommandRequest
+		json.NewDecoder(r.Body).Decode(&cmd)
+		if cmd.Name != "SeriesSearch" {
+			t.Errorf("Name = %q, want SeriesSearch", cmd.Name)
+		}
+		if cmd.SeriesID != 5 {
+			t.Errorf("SeriesID = %d, want 5", cmd.SeriesID)
+		}
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte("{}"))
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL, "test-key")
+	err := client.Command(context.Background(), CommandRequest{Name: "SeriesSearch", SeriesID: 5})
+	if err != nil {
+		t.Fatalf("Command() error: %v", err)
+	}
+}
+
+func TestDeleteSeries(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Errorf("expected DELETE, got %s", r.Method)
+		}
+		if r.URL.Path != "/api/v3/series/7" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		if r.URL.Query().Get("deleteFiles") != "true" {
+			t.Errorf("deleteFiles = %s, want true", r.URL.Query().Get("deleteFiles"))
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL, "test-key")
+	err := client.DeleteSeries(context.Background(), 7, true)
+	if err != nil {
+		t.Fatalf("DeleteSeries() error: %v", err)
+	}
+}
+
+func TestDeleteBlocklistItem(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Errorf("expected DELETE, got %s", r.Method)
+		}
+		if r.URL.Path != "/api/v3/blocklist/99" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL, "test-key")
+	err := client.DeleteBlocklistItem(context.Background(), 99)
+	if err != nil {
+		t.Fatalf("DeleteBlocklistItem() error: %v", err)
+	}
+}
+
+func TestGrabRelease(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		if r.URL.Path != "/api/v3/release" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		var req GrabReleaseRequest
+		json.NewDecoder(r.Body).Decode(&req)
+		if req.GUID != "abc-123" {
+			t.Errorf("GUID = %q, want abc-123", req.GUID)
+		}
+		if req.IndexerID != 2 {
+			t.Errorf("IndexerID = %d, want 2", req.IndexerID)
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("{}"))
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL, "test-key")
+	err := client.GrabRelease(context.Background(), "abc-123", 2)
+	if err != nil {
+		t.Fatalf("GrabRelease() error: %v", err)
+	}
+}

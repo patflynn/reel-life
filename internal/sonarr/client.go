@@ -28,6 +28,10 @@ type Client interface {
 	GetRootFolders(ctx context.Context) ([]RootFolder, error)
 	GetDownloadClients(ctx context.Context) ([]DownloadClient, error)
 	UpdateSeries(ctx context.Context, series *Series) (*Series, error)
+	Command(ctx context.Context, cmd CommandRequest) error
+	DeleteSeries(ctx context.Context, seriesID int, deleteFiles bool) error
+	DeleteBlocklistItem(ctx context.Context, id int) error
+	GrabRelease(ctx context.Context, guid string, indexerID int) error
 }
 
 // HTTPClient implements Client using Sonarr's v3 REST API.
@@ -238,6 +242,55 @@ func (c *HTTPClient) UpdateSeries(ctx context.Context, series *Series) (*Series,
 		return nil, fmt.Errorf("update series: %w", err)
 	}
 	return &result, nil
+}
+
+func (c *HTTPClient) Command(ctx context.Context, cmd CommandRequest) error {
+	u := c.url("/api/v3/command")
+
+	body, err := json.Marshal(cmd)
+	if err != nil {
+		return fmt.Errorf("marshal command request: %w", err)
+	}
+
+	if err := c.post(ctx, u.String(), body, nil); err != nil {
+		return fmt.Errorf("command %s: %w", cmd.Name, err)
+	}
+	return nil
+}
+
+func (c *HTTPClient) DeleteSeries(ctx context.Context, seriesID int, deleteFiles bool) error {
+	u := c.url(fmt.Sprintf("/api/v3/series/%d", seriesID))
+	q := u.Query()
+	q.Set("deleteFiles", strconv.FormatBool(deleteFiles))
+	u.RawQuery = q.Encode()
+
+	if err := c.delete(ctx, u.String()); err != nil {
+		return fmt.Errorf("delete series: %w", err)
+	}
+	return nil
+}
+
+func (c *HTTPClient) DeleteBlocklistItem(ctx context.Context, id int) error {
+	u := c.url(fmt.Sprintf("/api/v3/blocklist/%d", id))
+
+	if err := c.delete(ctx, u.String()); err != nil {
+		return fmt.Errorf("delete blocklist item: %w", err)
+	}
+	return nil
+}
+
+func (c *HTTPClient) GrabRelease(ctx context.Context, guid string, indexerID int) error {
+	u := c.url("/api/v3/release")
+
+	body, err := json.Marshal(GrabReleaseRequest{GUID: guid, IndexerID: indexerID})
+	if err != nil {
+		return fmt.Errorf("marshal grab release request: %w", err)
+	}
+
+	if err := c.post(ctx, u.String(), body, nil); err != nil {
+		return fmt.Errorf("grab release: %w", err)
+	}
+	return nil
 }
 
 func (c *HTTPClient) url(path string) *url.URL {

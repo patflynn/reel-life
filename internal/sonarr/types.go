@@ -96,6 +96,8 @@ type LogPage struct {
 }
 
 type Release struct {
+	GUID       string   `json:"guid"`
+	IndexerID  int      `json:"indexerId"`
 	Title      string   `json:"title"`
 	Indexer    string   `json:"indexer"`
 	Quality    string   `json:"quality"`
@@ -134,4 +136,15 @@ type DownloadClient struct {
 	Enable   bool   `json:"enable"`
 	Protocol string `json:"protocol"`
 	Priority int    `json:"priority"`
+}
+
+type CommandRequest struct {
+	Name         string `json:"name"`
+	SeriesID     int    `json:"seriesId,omitempty"`
+	SeasonNumber *int   `json:"seasonNumber,omitempty"`
+}
+
+type GrabReleaseRequest struct {
+	GUID      string `json:"guid"`
+	IndexerID int    `json:"indexerId"`
 }

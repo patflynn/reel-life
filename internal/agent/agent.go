@@ -403,6 +403,54 @@ func (a *Agent) dispatchTool(ctx context.Context, name string, rawInput json.Raw
 		}
 		result, err = a.sonarr.UpdateSeries(ctx, series)
 
+	case "trigger_series_search":
+		var input triggerSeriesSearchInput
+		if err := json.Unmarshal(rawInput, &input); err != nil {
+			return jsonError("invalid input: " + err.Error()), true
+		}
+		cmd := sonarr.CommandRequest{
+			Name:     "SeriesSearch",
+			SeriesID: input.SeriesID,
+		}
+		if input.SeasonNumber != nil {
+			cmd.Name = "SeasonSearch"
+			cmd.SeasonNumber = input.SeasonNumber
+		}
+		err = a.sonarr.Command(ctx, cmd)
+		if err == nil {
+			result = map[string]string{"status": "search triggered"}
+		}
+
+	case "delete_series":
+		var input deleteSeriesInput
+		if err := json.Unmarshal(rawInput, &input); err != nil {
+			return jsonError("invalid input: " + err.Error()), true
+		}
+		err = a.sonarr.DeleteSeries(ctx, input.SeriesID, input.DeleteFiles)
+		if err == nil {
+			result = map[string]string{"status": "deleted"}
+		}
+
+	case "remove_blocklist_item":
+		var input removeBlocklistItemInput
+		if err := json.Unmarshal(rawInput, &input); err != nil {
+			return jsonError("invalid input: " + err.Error()), true
+		}
+		err = a.sonarr.DeleteBlocklistItem(ctx, input.ID)
+		if err == nil {
+			result = map[string]string{"status": "removed"}
+		}
+
+	case "grab_release":
+		var input grabReleaseInput
+		if err := json.Unmarshal(rawInput, &input); err != nil {
+			return jsonError("invalid input: " + err.Error()), true
+		}
+		err = a.sonarr.GrabRelease(ctx, input.GUID, input.IndexerID)
+		if err == nil {
+			result = map[string]string{"status": "grabbed"}
+		}
+
 	case "search_movies", "add_movie", "get_movie_queue", "get_movie_history", "check_movie_health", "remove_failed_movie":
 		if a.radarr == nil {
 			return jsonError("Radarr integration is not configured"), true
