@@ -107,7 +107,7 @@ func requestID(ctx context.Context) string {
 
 // buildSystemPrompt returns the system prompt with pinned notebook notes appended.
 func (a *Agent) buildSystemPrompt(ctx context.Context) string {
-	prompt := systemPrompt
+	prompt := fmt.Sprintf("Today's date is %s.\n\n%s", time.Now().Format("2006-01-02"), systemPrompt)
 	if a.notebook == nil {
 		return prompt
 	}
