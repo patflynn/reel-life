@@ -35,7 +35,7 @@ func NewClient(latitude, longitude float64, locationName string) *Client {
 		location:  locationName,
 		cacheTTL:  30 * time.Minute,
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: 5 * time.Second,
 		},
 	}
 }

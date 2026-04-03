@@ -146,9 +146,9 @@ func main() {
 		logger.Info("notebook enabled", "path", nbPath)
 	}
 
-	// Weather client (optional — requires location coordinates).
+	// Weather client (optional — requires location name).
 	var weatherClient *weather.Client
-	if cfg.Location.Latitude != 0 || cfg.Location.Longitude != 0 {
+	if cfg.Location.Name != "" {
 		weatherClient = weather.NewClient(cfg.Location.Latitude, cfg.Location.Longitude, cfg.Location.Name)
 		logger.Info("weather context enabled", "location", cfg.Location.Name)
 	}

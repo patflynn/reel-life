@@ -242,7 +242,7 @@ in
       } // lib.optionalAttrs (cfg.notebookPath != "") {
         path = cfg.notebookPath;
       };
-    } // lib.optionalAttrs (cfg.locationLatitude != 0.0) {
+    } // lib.optionalAttrs (cfg.locationName != "") {
       location = {
         name = cfg.locationName;
         latitude = cfg.locationLatitude;
