@@ -84,6 +84,7 @@ func (c *HTTPClient) Queue(ctx context.Context) (*QueuePage, error) {
 
 func (c *HTTPClient) History(ctx context.Context, pageSize int) (*HistoryPage, error) {
 	u := c.url("/api/v3/history")
+	// 0 means "not specified" (JSON omitempty zero value); let the server use its default.
 	if pageSize > 0 {
 		q := u.Query()
 		q.Set("pageSize", strconv.Itoa(pageSize))
@@ -147,6 +148,7 @@ func (c *HTTPClient) GetLogs(ctx context.Context, pageSize int, level string) ([
 	u := c.url("/api/v3/log")
 	q := u.Query()
 	q.Set("sortDirection", "descending")
+	// 0 means "not specified" (JSON omitempty zero value); let the server use its default.
 	if pageSize > 0 {
 		q.Set("pageSize", strconv.Itoa(pageSize))
 	}
@@ -188,6 +190,7 @@ func (c *HTTPClient) GetQualityProfiles(ctx context.Context) ([]QualityProfile, 
 
 func (c *HTTPClient) GetBlocklist(ctx context.Context, pageSize int) (*BlocklistPage, error) {
 	u := c.url("/api/v3/blocklist")
+	// 0 means "not specified" (JSON omitempty zero value); let the server use its default.
 	if pageSize > 0 {
 		q := u.Query()
 		q.Set("pageSize", strconv.Itoa(pageSize))
