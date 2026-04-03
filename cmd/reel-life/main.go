@@ -19,6 +19,7 @@ import (
 	"github.com/patflynn/reel-life/internal/prowlarr"
 	"github.com/patflynn/reel-life/internal/radarr"
 	"github.com/patflynn/reel-life/internal/sonarr"
+	"github.com/patflynn/reel-life/internal/weather"
 )
 
 func main() {
@@ -152,7 +153,14 @@ func main() {
 		logger.Info("notebook enabled", "path", nbPath)
 	}
 
-	agentInstance := agent.New(anthropicKey, sonarrClient, radarrClient, prowlarrClient, overseerrClient, nb, cfg.Agent.Model, cfg.Agent.MaxTokens, logger, limiter)
+	// Weather client (optional — requires location name).
+	var weatherClient *weather.Client
+	if cfg.Location.Name != "" {
+		weatherClient = weather.NewClient(cfg.Location.Latitude, cfg.Location.Longitude, cfg.Location.Name)
+		logger.Info("weather context enabled", "location", cfg.Location.Name)
+	}
+
+	agentInstance := agent.New(anthropicKey, sonarrClient, radarrClient, prowlarrClient, overseerrClient, nb, weatherClient, cfg.Agent.Model, cfg.Agent.MaxTokens, logger, limiter)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()

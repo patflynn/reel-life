@@ -15,6 +15,7 @@ import (
 	"github.com/patflynn/reel-life/internal/prowlarr"
 	"github.com/patflynn/reel-life/internal/radarr"
 	"github.com/patflynn/reel-life/internal/sonarr"
+	"github.com/patflynn/reel-life/internal/weather"
 )
 
 const systemPrompt = `You are a media curation assistant for a home media server. You help users manage their TV series library through Sonarr, their movie library through Radarr, and handle media requests through Overseerr.
@@ -52,13 +53,14 @@ type Agent struct {
 	prowlarr  prowlarr.Client
 	overseerr overseerr.Client
 	notebook  notebook.Notebook
+	weather   *weather.Client
 	model     string
 	maxTok    int64
 	logger    *slog.Logger
 	limiter   *RateLimiter
 }
 
-func New(apiKey string, sonarrClient sonarr.Client, radarrClient radarr.Client, prowlarrClient prowlarr.Client, overseerrClient overseerr.Client, nb notebook.Notebook, model string, maxTokens int, logger *slog.Logger, limiter *RateLimiter) *Agent {
+func New(apiKey string, sonarrClient sonarr.Client, radarrClient radarr.Client, prowlarrClient prowlarr.Client, overseerrClient overseerr.Client, nb notebook.Notebook, weatherClient *weather.Client, model string, maxTokens int, logger *slog.Logger, limiter *RateLimiter) *Agent {
 	client := anthropic.NewClient(option.WithAPIKey(apiKey))
 	return &Agent{
 		client:    &client,
@@ -67,6 +69,7 @@ func New(apiKey string, sonarrClient sonarr.Client, radarrClient radarr.Client, 
 		prowlarr:  prowlarrClient,
 		overseerr: overseerrClient,
 		notebook:  nb,
+		weather:   weatherClient,
 		model:     model,
 		maxTok:    int64(maxTokens),
 		logger:    logger,
@@ -75,7 +78,7 @@ func New(apiKey string, sonarrClient sonarr.Client, radarrClient radarr.Client, 
 }
 
 // NewWithClient creates an Agent with a pre-configured Anthropic client (for testing).
-func NewWithClient(client *anthropic.Client, sonarrClient sonarr.Client, radarrClient radarr.Client, prowlarrClient prowlarr.Client, overseerrClient overseerr.Client, nb notebook.Notebook, model string, maxTokens int, logger *slog.Logger, limiter *RateLimiter) *Agent {
+func NewWithClient(client *anthropic.Client, sonarrClient sonarr.Client, radarrClient radarr.Client, prowlarrClient prowlarr.Client, overseerrClient overseerr.Client, nb notebook.Notebook, weatherClient *weather.Client, model string, maxTokens int, logger *slog.Logger, limiter *RateLimiter) *Agent {
 	return &Agent{
 		client:    client,
 		sonarr:    sonarrClient,
@@ -83,6 +86,7 @@ func NewWithClient(client *anthropic.Client, sonarrClient sonarr.Client, radarrC
 		prowlarr:  prowlarrClient,
 		overseerr: overseerrClient,
 		notebook:  nb,
+		weather:   weatherClient,
 		model:     model,
 		maxTok:    int64(maxTokens),
 		logger:    logger,
@@ -107,7 +111,24 @@ func requestID(ctx context.Context) string {
 
 // buildSystemPrompt returns the system prompt with pinned notebook notes appended.
 func (a *Agent) buildSystemPrompt(ctx context.Context) string {
-	prompt := fmt.Sprintf("Today's date is %s.\n\n%s", time.Now().Format("2006-01-02"), systemPrompt)
+	dateLine := fmt.Sprintf("Today's date is %s.", time.Now().Format("2006-01-02"))
+
+	var locationLine string
+	if a.weather != nil {
+		if cond := a.weather.Current(ctx); cond != nil {
+			locationLine = fmt.Sprintf("Current location: %s. Weather: %.0f°C, %s.", a.weather.Location(), cond.Temperature, cond.Description)
+		} else {
+			locationLine = fmt.Sprintf("Current location: %s.", a.weather.Location())
+		}
+	}
+
+	var prompt string
+	if locationLine != "" {
+		prompt = fmt.Sprintf("%s\n%s\n\n%s", dateLine, locationLine, systemPrompt)
+	} else {
+		prompt = fmt.Sprintf("%s\n\n%s", dateLine, systemPrompt)
+	}
+
 	if a.notebook == nil {
 		return prompt
 	}
