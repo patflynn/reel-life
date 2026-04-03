@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -99,7 +100,7 @@ func Load(path string) (*Config, error) {
 		Agent: AgentConfig{
 			Model:       "claude-sonnet-4-5-20250929",
 			MaxTokens:   4096,
-			HistorySize: 20,
+			HistorySize: 50,
 		},
 		Monitor: MonitorConfig{
 			Enabled:  true,
@@ -164,6 +165,19 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("NOTEBOOK_PATH"); v != "" {
 		cfg.Notebook.Path = v
+	}
+	if v := os.Getenv("REEL_LIFE_LATITUDE"); v != "" {
+		if lat, err := strconv.ParseFloat(v, 64); err == nil {
+			cfg.Location.Latitude = lat
+		}
+	}
+	if v := os.Getenv("REEL_LIFE_LONGITUDE"); v != "" {
+		if lon, err := strconv.ParseFloat(v, 64); err == nil {
+			cfg.Location.Longitude = lon
+		}
+	}
+	if v := os.Getenv("REEL_LIFE_LOCATION_NAME"); v != "" {
+		cfg.Location.Name = v
 	}
 }
 
