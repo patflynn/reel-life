@@ -15,6 +15,9 @@ import (
 type Client interface {
 	ListIndexers(ctx context.Context) ([]Indexer, error)
 	TestIndexer(ctx context.Context, id int) error
+	TestAllIndexers(ctx context.Context) ([]IndexerTestResult, error)
+	UpdateIndexer(ctx context.Context, indexer *Indexer) (*Indexer, error)
+	DeleteIndexer(ctx context.Context, indexerID int) error
 	GetIndexerStats(ctx context.Context) (*IndexerStats, error)
 	CheckHealth(ctx context.Context) ([]HealthCheck, error)
 	Search(ctx context.Context, query string) ([]SearchResult, error)
@@ -55,6 +58,40 @@ func (c *HTTPClient) TestIndexer(ctx context.Context, id int) error {
 
 	if err := c.post(ctx, u.String(), body, nil); err != nil {
 		return fmt.Errorf("test indexer: %w", err)
+	}
+	return nil
+}
+
+func (c *HTTPClient) TestAllIndexers(ctx context.Context) ([]IndexerTestResult, error) {
+	u := c.url("/api/v1/indexer/testall")
+
+	var result []IndexerTestResult
+	if err := c.post(ctx, u.String(), []byte("{}"), &result); err != nil {
+		return nil, fmt.Errorf("test all indexers: %w", err)
+	}
+	return result, nil
+}
+
+func (c *HTTPClient) UpdateIndexer(ctx context.Context, indexer *Indexer) (*Indexer, error) {
+	u := c.url(fmt.Sprintf("/api/v1/indexer/%d", indexer.ID))
+
+	body, err := json.Marshal(indexer)
+	if err != nil {
+		return nil, fmt.Errorf("marshal indexer: %w", err)
+	}
+
+	var result Indexer
+	if err := c.put(ctx, u.String(), body, &result); err != nil {
+		return nil, fmt.Errorf("update indexer: %w", err)
+	}
+	return &result, nil
+}
+
+func (c *HTTPClient) DeleteIndexer(ctx context.Context, indexerID int) error {
+	u := c.url(fmt.Sprintf("/api/v1/indexer/%d", indexerID))
+
+	if err := c.delete(ctx, u.String()); err != nil {
+		return fmt.Errorf("delete indexer: %w", err)
 	}
 	return nil
 }
@@ -116,6 +153,23 @@ func (c *HTTPClient) post(ctx context.Context, rawURL string, body []byte, out a
 	}
 	req.Header.Set("Content-Type", "application/json")
 	return c.do(req, out)
+}
+
+func (c *HTTPClient) put(ctx context.Context, rawURL string, body []byte, out any) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, rawURL, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	return c.do(req, out)
+}
+
+func (c *HTTPClient) delete(ctx context.Context, rawURL string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, rawURL, nil)
+	if err != nil {
+		return err
+	}
+	return c.do(req, nil)
 }
 
 func (c *HTTPClient) do(req *http.Request, out any) error {
