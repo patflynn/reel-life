@@ -416,10 +416,7 @@ func (a *Agent) dispatchTool(ctx context.Context, name string, rawInput json.Raw
 			cmd.Name = "SeasonSearch"
 			cmd.SeasonNumber = input.SeasonNumber
 		}
-		err = a.sonarr.Command(ctx, cmd)
-		if err == nil {
-			result = map[string]string{"status": "search triggered"}
-		}
+		result, err = a.sonarr.Command(ctx, cmd)
 
 	case "delete_series":
 		var input deleteSeriesInput
@@ -446,10 +443,7 @@ func (a *Agent) dispatchTool(ctx context.Context, name string, rawInput json.Raw
 		if err := json.Unmarshal(rawInput, &input); err != nil {
 			return jsonError("invalid input: " + err.Error()), true
 		}
-		err = a.sonarr.GrabRelease(ctx, input.GUID, input.IndexerID)
-		if err == nil {
-			result = map[string]string{"status": "grabbed"}
-		}
+		result, err = a.sonarr.GrabRelease(ctx, input.GUID, input.IndexerID)
 
 	case "search_movies", "add_movie", "get_movie_queue", "get_movie_history", "check_movie_health", "remove_failed_movie":
 		if a.radarr == nil {

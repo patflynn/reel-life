@@ -431,14 +431,27 @@ func TestCommand(t *testing.T) {
 			t.Errorf("SeriesID = %d, want 5", cmd.SeriesID)
 		}
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte("{}"))
+		json.NewEncoder(w).Encode(CommandResource{
+			ID:     42,
+			Name:   "SeriesSearch",
+			Status: "queued",
+		})
 	}))
 	defer srv.Close()
 
 	client := NewClient(srv.URL, "test-key")
-	err := client.Command(context.Background(), CommandRequest{Name: "SeriesSearch", SeriesID: 5})
+	res, err := client.Command(context.Background(), CommandRequest{Name: "SeriesSearch", SeriesID: 5})
 	if err != nil {
 		t.Fatalf("Command() error: %v", err)
+	}
+	if res.ID != 42 {
+		t.Errorf("ID = %d, want 42", res.ID)
+	}
+	if res.Name != "SeriesSearch" {
+		t.Errorf("Name = %q, want SeriesSearch", res.Name)
+	}
+	if res.Status != "queued" {
+		t.Errorf("Status = %q, want queued", res.Status)
 	}
 }
 
@@ -500,13 +513,23 @@ func TestGrabRelease(t *testing.T) {
 			t.Errorf("IndexerID = %d, want 2", req.IndexerID)
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("{}"))
+		json.NewEncoder(w).Encode(Release{
+			GUID:      "abc-123",
+			IndexerID: 2,
+			Title:     "Test.Release.S01E01.720p",
+		})
 	}))
 	defer srv.Close()
 
 	client := NewClient(srv.URL, "test-key")
-	err := client.GrabRelease(context.Background(), "abc-123", 2)
+	rel, err := client.GrabRelease(context.Background(), "abc-123", 2)
 	if err != nil {
 		t.Fatalf("GrabRelease() error: %v", err)
+	}
+	if rel.GUID != "abc-123" {
+		t.Errorf("GUID = %q, want abc-123", rel.GUID)
+	}
+	if rel.Title != "Test.Release.S01E01.720p" {
+		t.Errorf("Title = %q, want Test.Release.S01E01.720p", rel.Title)
 	}
 }

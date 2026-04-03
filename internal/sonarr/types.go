@@ -144,6 +144,18 @@ type CommandRequest struct {
 	SeasonNumber *int   `json:"seasonNumber,omitempty"`
 }
 
+type CommandResource struct {
+	ID        int    `json:"id"`
+	Name      string `json:"name"`
+	Status    string `json:"status"`
+	Queued    string `json:"queued,omitempty"`
+	Started   string `json:"started,omitempty"`
+	Ended     string `json:"ended,omitempty"`
+	Priority  string `json:"priority,omitempty"`
+	Trigger   string `json:"trigger,omitempty"`
+	SendUpdatesToClient bool `json:"sendUpdatesToClient"`
+}
+
 type GrabReleaseRequest struct {
 	GUID      string `json:"guid"`
 	IndexerID int    `json:"indexerId"`

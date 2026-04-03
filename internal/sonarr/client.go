@@ -28,10 +28,10 @@ type Client interface {
 	GetRootFolders(ctx context.Context) ([]RootFolder, error)
 	GetDownloadClients(ctx context.Context) ([]DownloadClient, error)
 	UpdateSeries(ctx context.Context, series *Series) (*Series, error)
-	Command(ctx context.Context, cmd CommandRequest) error
+	Command(ctx context.Context, cmd CommandRequest) (*CommandResource, error)
 	DeleteSeries(ctx context.Context, seriesID int, deleteFiles bool) error
 	DeleteBlocklistItem(ctx context.Context, id int) error
-	GrabRelease(ctx context.Context, guid string, indexerID int) error
+	GrabRelease(ctx context.Context, guid string, indexerID int) (*Release, error)
 }
 
 // HTTPClient implements Client using Sonarr's v3 REST API.
@@ -244,18 +244,19 @@ func (c *HTTPClient) UpdateSeries(ctx context.Context, series *Series) (*Series,
 	return &result, nil
 }
 
-func (c *HTTPClient) Command(ctx context.Context, cmd CommandRequest) error {
+func (c *HTTPClient) Command(ctx context.Context, cmd CommandRequest) (*CommandResource, error) {
 	u := c.url("/api/v3/command")
 
 	body, err := json.Marshal(cmd)
 	if err != nil {
-		return fmt.Errorf("marshal command request: %w", err)
+		return nil, fmt.Errorf("marshal command request: %w", err)
 	}
 
-	if err := c.post(ctx, u.String(), body, nil); err != nil {
-		return fmt.Errorf("command %s: %w", cmd.Name, err)
+	var result CommandResource
+	if err := c.post(ctx, u.String(), body, &result); err != nil {
+		return nil, fmt.Errorf("command %s: %w", cmd.Name, err)
 	}
-	return nil
+	return &result, nil
 }
 
 func (c *HTTPClient) DeleteSeries(ctx context.Context, seriesID int, deleteFiles bool) error {
@@ -279,18 +280,19 @@ func (c *HTTPClient) DeleteBlocklistItem(ctx context.Context, id int) error {
 	return nil
 }
 
-func (c *HTTPClient) GrabRelease(ctx context.Context, guid string, indexerID int) error {
+func (c *HTTPClient) GrabRelease(ctx context.Context, guid string, indexerID int) (*Release, error) {
 	u := c.url("/api/v3/release")
 
 	body, err := json.Marshal(GrabReleaseRequest{GUID: guid, IndexerID: indexerID})
 	if err != nil {
-		return fmt.Errorf("marshal grab release request: %w", err)
+		return nil, fmt.Errorf("marshal grab release request: %w", err)
 	}
 
-	if err := c.post(ctx, u.String(), body, nil); err != nil {
-		return fmt.Errorf("grab release: %w", err)
+	var result Release
+	if err := c.post(ctx, u.String(), body, &result); err != nil {
+		return nil, fmt.Errorf("grab release: %w", err)
 	}
-	return nil
+	return &result, nil
 }
 
 func (c *HTTPClient) url(path string) *url.URL {

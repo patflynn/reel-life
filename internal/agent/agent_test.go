@@ -79,10 +79,14 @@ func (m *mockSonarr) GetDownloadClients(_ context.Context) ([]sonarr.DownloadCli
 func (m *mockSonarr) UpdateSeries(_ context.Context, series *sonarr.Series) (*sonarr.Series, error) {
 	return series, nil
 }
-func (m *mockSonarr) Command(_ context.Context, _ sonarr.CommandRequest) error { return nil }
-func (m *mockSonarr) DeleteSeries(_ context.Context, _ int, _ bool) error      { return nil }
-func (m *mockSonarr) DeleteBlocklistItem(_ context.Context, _ int) error        { return nil }
-func (m *mockSonarr) GrabRelease(_ context.Context, _ string, _ int) error      { return nil }
+func (m *mockSonarr) Command(_ context.Context, _ sonarr.CommandRequest) (*sonarr.CommandResource, error) {
+	return &sonarr.CommandResource{}, nil
+}
+func (m *mockSonarr) DeleteSeries(_ context.Context, _ int, _ bool) error { return nil }
+func (m *mockSonarr) DeleteBlocklistItem(_ context.Context, _ int) error  { return nil }
+func (m *mockSonarr) GrabRelease(_ context.Context, _ string, _ int) (*sonarr.Release, error) {
+	return &sonarr.Release{}, nil
+}
 
 // mockRadarr implements radarr.Client for agent testing.
 type mockRadarr struct {
