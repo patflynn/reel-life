@@ -20,6 +20,14 @@ type Config struct {
 	Log       LogConfig       `yaml:"log"`
 	Server    ServerConfig    `yaml:"server"`
 	Notebook  NotebookConfig  `yaml:"notebook"`
+	Location  LocationConfig  `yaml:"location"`
+}
+
+// LocationConfig holds coordinates and display name for weather lookups.
+type LocationConfig struct {
+	Name      string  `yaml:"name"`
+	Latitude  float64 `yaml:"latitude"`
+	Longitude float64 `yaml:"longitude"`
 }
 
 // NotebookConfig controls the persistent notebook for agent memory.

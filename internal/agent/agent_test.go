@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/patflynn/reel-life/internal/notebook"
@@ -12,6 +15,7 @@ import (
 	"github.com/patflynn/reel-life/internal/prowlarr"
 	"github.com/patflynn/reel-life/internal/radarr"
 	"github.com/patflynn/reel-life/internal/sonarr"
+	"github.com/patflynn/reel-life/internal/weather"
 )
 
 // mockSonarr implements sonarr.Client for agent testing.
@@ -799,6 +803,80 @@ func TestDispatchNotebookDelete(t *testing.T) {
 	if status["status"] != "deleted" {
 		t.Errorf("expected status=deleted, got %s", result)
 	}
+}
+
+func TestBuildSystemPromptNoWeather(t *testing.T) {
+	a := newTestAgent()
+	prompt := a.buildSystemPrompt(context.Background())
+	if !strings.Contains(prompt, "Today's date is") {
+		t.Error("expected date in prompt")
+	}
+	if strings.Contains(prompt, "Current location") {
+		t.Error("did not expect location when weather client is nil")
+	}
+}
+
+func TestBuildSystemPromptWithWeather(t *testing.T) {
+	// Create a mock weather server.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{
+			"current": map[string]any{
+				"temperature_2m": -5.0,
+				"weather_code":   71,
+			},
+		})
+	}))
+	defer srv.Close()
+
+	wc := weather.NewClient(45.5, -73.5, "Montreal, QC")
+	wc.SetHTTPClient(&http.Client{
+		Transport: &testRewriteTransport{base: srv.URL},
+	})
+
+	a := newTestAgent()
+	a.weather = wc
+	prompt := a.buildSystemPrompt(context.Background())
+	if !strings.Contains(prompt, "Current location: Montreal, QC.") {
+		t.Errorf("expected location in prompt, got: %s", prompt[:200])
+	}
+	if !strings.Contains(prompt, "Weather: -5°C, snow.") {
+		t.Errorf("expected weather in prompt, got: %s", prompt[:200])
+	}
+}
+
+func TestBuildSystemPromptWeatherUnavailable(t *testing.T) {
+	// Server that always fails.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	wc := weather.NewClient(45.5, -73.5, "Montreal, QC")
+	wc.SetHTTPClient(&http.Client{
+		Transport: &testRewriteTransport{base: srv.URL},
+	})
+
+	a := newTestAgent()
+	a.weather = wc
+	prompt := a.buildSystemPrompt(context.Background())
+	if !strings.Contains(prompt, "Current location: Montreal, QC.") {
+		t.Errorf("expected location-only in prompt, got: %s", prompt[:200])
+	}
+	if strings.Contains(prompt, "Weather:") {
+		t.Error("did not expect weather when fetch fails")
+	}
+}
+
+// testRewriteTransport redirects all requests to a test server.
+type testRewriteTransport struct {
+	base string
+}
+
+func (t *testRewriteTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	req = req.Clone(req.Context())
+	req.URL.Scheme = "http"
+	req.URL.Host = t.base[len("http://"):]
+	return http.DefaultTransport.RoundTrip(req)
 }
 
 func TestDispatchNotebookWriteInvalidType(t *testing.T) {

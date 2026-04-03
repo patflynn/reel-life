@@ -165,6 +165,24 @@ in
       description = "Path for persistent notebook storage";
     };
 
+    locationName = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      description = "Display name for the location (e.g. Montreal, QC)";
+    };
+
+    locationLatitude = lib.mkOption {
+      type = lib.types.float;
+      default = 0.0;
+      description = "Latitude for weather lookups";
+    };
+
+    locationLongitude = lib.mkOption {
+      type = lib.types.float;
+      default = 0.0;
+      description = "Longitude for weather lookups";
+    };
+
     restrictNetwork = lib.mkOption {
       type = lib.types.bool;
       default = false;
@@ -223,6 +241,12 @@ in
         enabled = true;
       } // lib.optionalAttrs (cfg.notebookPath != "") {
         path = cfg.notebookPath;
+      };
+    } // lib.optionalAttrs (cfg.locationLatitude != 0.0) {
+      location = {
+        name = cfg.locationName;
+        latitude = cfg.locationLatitude;
+        longitude = cfg.locationLongitude;
       };
     });
 
