@@ -75,6 +75,7 @@ type AgentConfig struct {
 	Model       string           `yaml:"model"`
 	MaxTokens   int              `yaml:"max_tokens"`
 	HistorySize int              `yaml:"history_size"`
+	HistoryPath string           `yaml:"history_path"`
 	RateLimits  *RateLimitConfig `yaml:"rate_limits,omitempty"`
 }
 
@@ -165,6 +166,9 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("NOTEBOOK_PATH"); v != "" {
 		cfg.Notebook.Path = v
+	}
+	if v := os.Getenv("HISTORY_PATH"); v != "" {
+		cfg.Agent.HistoryPath = v
 	}
 	if v := os.Getenv("REEL_LIFE_LATITUDE"); v != "" {
 		if lat, err := strconv.ParseFloat(v, 64); err == nil {

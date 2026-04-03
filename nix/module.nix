@@ -93,6 +93,12 @@ in
       description = "Maximum conversation turns per chat (0 to disable history)";
     };
 
+    agentHistoryPath = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      description = "Path to persist conversation history (empty = in-memory only)";
+    };
+
     monitorEnabled = lib.mkOption {
       type = lib.types.bool;
       default = true;
@@ -225,6 +231,8 @@ in
         model = cfg.agentModel;
         max_tokens = cfg.agentMaxTokens;
         history_size = cfg.agentHistorySize;
+      } // lib.optionalAttrs (cfg.agentHistoryPath != "") {
+        history_path = cfg.agentHistoryPath;
       };
       monitor = {
         enabled = cfg.monitorEnabled;
@@ -277,7 +285,9 @@ in
         ProtectHome = true;
         PrivateTmp = true;
         PrivateDevices = true;
-        ReadWritePaths = [ ];  # service is stateless
+        ReadWritePaths =
+          lib.optional (cfg.notebookPath != "") (builtins.dirOf cfg.notebookPath)
+          ++ lib.optional (cfg.agentHistoryPath != "") (builtins.dirOf cfg.agentHistoryPath);
 
         # Kernel: block access to tunables, modules, logs, cgroups, clock, hostname
         ProtectKernelTunables = true;

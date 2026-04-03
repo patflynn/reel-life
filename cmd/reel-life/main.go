@@ -74,8 +74,13 @@ func main() {
 	// Build conversation history store.
 	var historyStore *agent.HistoryStore
 	if cfg.Agent.HistorySize > 0 {
-		historyStore = agent.NewHistoryStore(cfg.Agent.HistorySize)
-		logger.Info("conversation history enabled", "max_turns", cfg.Agent.HistorySize)
+		if cfg.Agent.HistoryPath != "" {
+			historyStore = agent.NewPersistentHistoryStore(cfg.Agent.HistorySize, cfg.Agent.HistoryPath)
+			logger.Info("persistent conversation history enabled", "max_turns", cfg.Agent.HistorySize, "path", cfg.Agent.HistoryPath)
+		} else {
+			historyStore = agent.NewHistoryStore(cfg.Agent.HistorySize)
+			logger.Info("conversation history enabled", "max_turns", cfg.Agent.HistorySize)
+		}
 	}
 
 	// Select notifier based on backend configuration.

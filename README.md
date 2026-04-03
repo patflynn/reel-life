@@ -73,6 +73,7 @@ services.reel-life = {
   chatTelegramAllowedUsers = [ 123456789 ];
   notebookEnabled = true;
   notebookPath = "/var/lib/reel-life/notebook.json";
+  agentHistoryPath = "/var/lib/reel-life/history.json";
   environmentFiles = [
     config.age.secrets.anthropic-key.path
     config.age.secrets.sonarr-api-key.path
@@ -103,6 +104,7 @@ agent:
   model: claude-sonnet-4-5-20250929
   max_tokens: 4096
   history_size: 40  # conversation turns per chat (0 = disabled)
+  history_path: /var/lib/reel-life/history.json  # persist between restarts
 
 notebook:
   enabled: true
