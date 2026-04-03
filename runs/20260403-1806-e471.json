@@ -1,0 +1,16 @@
+{
+  "id": "20260403-1806-e471",
+  "prompt": "Add indexer management capabilities to Prowlarr — enable/disable, update, and delete indexers.\n\n## Current state\nThe Prowlarr client (internal/prowlarr/client.go) has 5 methods: ListIndexers, TestIndexer, GetIndexerStats, CheckHealth, Search. HTTP methods: GET and POST only. No write operations besides testing.\n\n## Changes needed\n\n### A. Add PUT and DELETE HTTP methods\nAdd put() and delete() methods to the HTTPClient (follow patterns from other clients in the project like internal/sonarr/client.go).\n\n### B. New Client interface methods + implementations\n\n1. **UpdateIndexer(ctx, indexer *Indexer) (*Indexer, error)** — PUT /api/v1/indexer/{id}\n   - Fetch full indexer first, modify, PUT back\n   - The Indexer type likely already exists from ListIndexers — check types.go\n\n2. **DeleteIndexer(ctx, indexerID int) error** — DELETE /api/v1/indexer/{id}\n\n3. **TestAllIndexers(ctx) ([]IndexerTestResult, error)** — POST /api/v1/indexer/testall\n   - Returns list of test results for all indexers\n\n### C. New tools\n\n4. **'enable_indexer'** — input: indexerID int, enabled bool\n   - Fetches indexer via ListIndexers (find by ID), sets Enable field, PUTs back\n   - Description: 'Enable or disable a Prowlarr indexer'\n   - Mark destructive\n\n5. **'update_indexer_priority'** — input: indexerID int, priority int\n   - Fetches indexer, sets Priority field, PUTs back\n   - Description: 'Change the priority of a Prowlarr indexer'\n   - Mark destructive\n\n6. **'delete_indexer'** — input: indexerID int\n   - Calls DeleteIndexer\n   - Description: 'Remove an indexer from Prowlarr'\n   - Mark destructive\n\n7. **'test_all_indexers'** — no input\n   - Calls TestAllIndexers\n   - Description: 'Test all configured indexers at once'\n\n### D. Types\nCheck internal/prowlarr/types.go for existing Indexer struct. Ensure it has at minimum: ID, Name, Enable, Priority, Protocol, and Fields. Add IndexerTestResult type if needed.\n\nNote: I'm intentionally NOT including 'add indexer' since it requires complex field configuration that's hard to get right through a chat interface.\n\n### Files to modify\n- internal/prowlarr/types.go — add/update types as needed\n- internal/prowlarr/client.go — add put(), delete(), new interface methods + implementations\n- internal/agent/tools.go — new tool definitions in prowlarrToolDefs() (or equivalent), add to destructiveTools\n- internal/agent/agent.go — new cases in dispatchTool()\n\nRun 'make test' or 'go test ./...' before creating the PR.",
+  "issue": null,
+  "branch": "agent/20260403-1806-e471",
+  "worktree": "/tmp/klaus-sessions/reel-life/20260403-1806-e471",
+  "tmux_pane": "%81",
+  "budget": "5",
+  "log_file": "/home/patrick/.klaus/sessions/session-20260403-1752-e050/logs/20260403-1806-e471.jsonl",
+  "created_at": "2026-04-03T18:06:05-04:00",
+  "cost_usd": 1.0744545,
+  "duration_ms": 166797,
+  "pr_url": "https://github.com/patflynn/reel-life/pull/35",
+  "target_repo": "reel-life",
+  "clone_dir": "/home/patrick/hack/reel-life"
+}
