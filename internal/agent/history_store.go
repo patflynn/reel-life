@@ -13,7 +13,8 @@ type HistoryStore struct {
 	mu      sync.RWMutex
 	buffers map[string]*ConversationBuffer
 	cap     int
-	path    string // empty = in-memory only
+	path   string // empty = in-memory only
+	saveMu sync.Mutex
 }
 
 // NewHistoryStore creates an in-memory store where each chat gets a buffer of turnCapacity turns.
@@ -47,10 +48,10 @@ func (s *HistoryStore) Get(chatID string) *ConversationBuffer {
 	}
 
 	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	// Double-check after acquiring write lock.
 	if buf, ok := s.buffers[chatID]; ok {
+		s.mu.Unlock()
 		return buf
 	}
 
@@ -59,7 +60,10 @@ func (s *HistoryStore) Get(chatID string) *ConversationBuffer {
 		buf.onChange = func() { s.save() }
 	}
 	s.buffers[chatID] = buf
-	s.saveLocked()
+	s.mu.Unlock()
+
+	// Save outside the write lock to avoid blocking concurrent readers during I/O.
+	s.save()
 	return buf
 }
 
@@ -99,23 +103,22 @@ func (s *HistoryStore) load() {
 	}
 }
 
-// save persists the full store state to disk. Acquires the store mutex.
+// save persists the full store state to disk.
+// Uses saveMu to serialize writes and releases the store read lock before I/O.
 func (s *HistoryStore) save() {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	s.saveLocked()
-}
-
-// saveLocked persists state to disk. Caller must hold at least a read lock on s.mu.
-func (s *HistoryStore) saveLocked() {
 	if s.path == "" {
 		return
 	}
 
+	s.saveMu.Lock()
+	defer s.saveMu.Unlock()
+
+	s.mu.RLock()
 	hf := historyFile{Chats: make(map[string][]Turn, len(s.buffers))}
 	for chatID, buf := range s.buffers {
 		hf.Chats[chatID] = buf.Turns()
 	}
+	s.mu.RUnlock()
 
 	data, err := json.MarshalIndent(hf, "", "  ")
 	if err != nil {
