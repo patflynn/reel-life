@@ -1,0 +1,16 @@
+{
+  "id": "20260403-1759-7861",
+  "prompt": "Add an 'admin_chat_id' configuration option for Telegram that receives health/monitor notifications separately from the main conversation chat.\n\n## Problem\nWhen telegram_chat_id is 0 (auto-capture mode), the health monitor fires immediately on startup and fails because the chat ID hasn't been captured yet. Even with a configured chat_id, health alerts go to the same chat as conversations, which isn't always desired.\n\n## Solution\nAdd a new config field 'telegram_admin_chat_id' that the monitor uses for health alerts. If set, health alerts go there instead of the main chat. If unset, fall back to the existing behavior (main chat ID).\n\n## Files to change\n\n### 1. internal/config/config.go\n- Add TelegramAdminChatID int64 to ChatConfig struct (around line 69, next to TelegramChatID)\n  `yaml:\"telegram_admin_chat_id\"`\n\n### 2. internal/chat/telegram.go\n- Add adminChatID int64 field to the Telegram struct (line ~28)\n- Update NewTelegram() constructor (line ~40) to accept adminChatID parameter\n- Add a new method SendAdmin(ctx, msg, threadKey) that sends to adminChatID instead of chatID\n  - If adminChatID == 0, fall back to Send/SendThread (existing behavior)\n  - If adminChatID is set, send directly to that chat ID (no auto-capture needed, no 'waiting for first message' error)\n- Keep existing Send()/SendThread() unchanged — they still use the main chatID\n\n### 3. internal/chat/chat.go\n- Add SendAdmin(ctx context.Context, msg string, threadKey string) error to the Notifier interface\n- Implement it on the Google Chat notifier too (can just delegate to SendThread as a no-op distinction)\n\n### 4. internal/monitor/monitor.go\n- In alert() (line ~92), change m.notifier.SendThread() to m.notifier.SendAdmin()\n  - This routes health alerts through the admin channel\n\n### 5. cmd/reel-life/main.go\n- Pass cfg.Chat.TelegramAdminChatID to NewTelegram() (around line 91)\n\n### 6. nix/module.nix\n- Add chatTelegramAdminChatID option (near line 132), type int, default 0\n  - Description: 'Telegram chat ID for admin/health notifications (0 = use main chat ID)'\n- Wire it into the config generation block (around line 220)\n\n### 7. README.md\n- Add telegram_admin_chat_id to the config example, with a comment explaining its purpose\n\n### 8. config.yaml.example (if it exists)\n- Add the new field with a comment\n\n## Acceptance criteria\n- Health alerts use admin_chat_id when configured\n- Health alerts fall back to main chat_id when admin_chat_id is 0\n- No startup error when admin_chat_id is set but main chat_id is 0 (auto-capture)\n- Existing conversation behavior unchanged\n- Tests pass (run 'make test' or 'go test ./...')\n- Add a test for SendAdmin routing logic",
+  "issue": null,
+  "branch": "agent/20260403-1759-7861",
+  "worktree": "/tmp/klaus-sessions/reel-life/20260403-1759-7861",
+  "tmux_pane": "%75",
+  "budget": "5",
+  "log_file": "/home/patrick/.klaus/sessions/session-20260403-1752-e050/logs/20260403-1759-7861.jsonl",
+  "created_at": "2026-04-03T17:59:13-04:00",
+  "cost_usd": 1.1463739,
+  "duration_ms": 212298,
+  "pr_url": "https://github.com/patflynn/reel-life/pull/32",
+  "target_repo": "reel-life",
+  "clone_dir": "/home/patrick/hack/reel-life"
+}
