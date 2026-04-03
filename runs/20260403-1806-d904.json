@@ -1,0 +1,16 @@
+{
+  "id": "20260403-1806-d904",
+  "prompt": "Add missing Overseerr capabilities — request details, deletion, and comments.\n\n## Current state\nThe Overseerr client (internal/overseerr/client.go) has 5 methods: ListRequests, ApproveRequest, DeclineRequest, GetRequestCount, SearchMedia. HTTP methods: GET and POST only. No DELETE.\n\n## Changes needed\n\n### A. Add DELETE HTTP method\nAdd delete() to the HTTPClient (follow pattern from other clients like internal/sonarr/client.go).\n\n### B. New Client interface methods + implementations\n\n1. **GetRequest(ctx, requestID int) (*Request, error)** — GET /api/v1/request/{id}\n   - Returns full request details (more than what ListRequests shows)\n\n2. **DeleteRequest(ctx, requestID int) error** — DELETE /api/v1/request/{id}\n\n3. **RetryRequest(ctx, requestID int) (*Request, error)** — POST /api/v1/request/{id}/retry\n   - Retries a failed request\n\n### C. New tools\n\n4. **'get_request_detail'** — input: requestID int\n   - Calls GetRequest\n   - Description: 'Get detailed information about a specific Overseerr media request'\n\n5. **'delete_request'** — input: requestID int\n   - Calls DeleteRequest\n   - Description: 'Delete a media request from Overseerr'\n   - Mark destructive\n\n6. **'retry_request'** — input: requestID int\n   - Calls RetryRequest\n   - Description: 'Retry a failed Overseerr media request'\n   - Mark destructive\n\n### D. Types\nCheck internal/overseerr/types.go for existing Request type. Ensure it has enough fields for the detail view. The Overseerr API returns rich request objects with media info, status, requested by, created/updated dates, seasons info, etc.\n\n### Files to modify\n- internal/overseerr/types.go — add/update types as needed\n- internal/overseerr/client.go — add delete(), new interface methods + implementations\n- internal/agent/tools.go — new tool definitions in overseerrToolDefs() (or equivalent), add to destructiveTools\n- internal/agent/agent.go — new cases in dispatchTool()\n\nRun 'make test' or 'go test ./...' before creating the PR.",
+  "issue": null,
+  "branch": "agent/20260403-1806-d904",
+  "worktree": "/tmp/klaus-sessions/reel-life/20260403-1806-d904",
+  "tmux_pane": "%82",
+  "budget": "5",
+  "log_file": "/home/patrick/.klaus/sessions/session-20260403-1752-e050/logs/20260403-1806-d904.jsonl",
+  "created_at": "2026-04-03T18:06:15-04:00",
+  "cost_usd": 1.10124975,
+  "duration_ms": 164178,
+  "pr_url": "https://github.com/patflynn/reel-life/pull/36",
+  "target_repo": "reel-life",
+  "clone_dir": "/home/patrick/hack/reel-life"
+}
