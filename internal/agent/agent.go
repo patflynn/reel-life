@@ -533,13 +533,12 @@ func (a *Agent) dispatchTool(ctx context.Context, name string, rawInput json.Raw
 			if err := json.Unmarshal(rawInput, &input); err != nil {
 				return jsonError("invalid input: " + err.Error()), true
 			}
-			movie, getErr := a.radarr.GetMovie(ctx, input.MovieID)
-			if getErr != nil {
-				err = getErr
-			} else {
-				movie.Monitored = input.Monitored
-				result, err = a.radarr.UpdateMovie(ctx, movie)
+			movie, err := a.radarr.GetMovie(ctx, input.MovieID)
+			if err != nil {
+				break
 			}
+			movie.Monitored = input.Monitored
+			result, err = a.radarr.UpdateMovie(ctx, movie)
 		case "delete_movie":
 			var input deleteMovieInput
 			if err := json.Unmarshal(rawInput, &input); err != nil {
@@ -555,7 +554,7 @@ func (a *Agent) dispatchTool(ctx context.Context, name string, rawInput json.Raw
 				return jsonError("invalid input: " + err.Error()), true
 			}
 			err = a.radarr.Command(ctx, radarr.CommandRequest{
-				Name:     "MoviesSearch",
+				Name:     radarr.CommandMoviesSearch,
 				MovieIDs: []int{input.MovieID},
 			})
 			if err == nil {

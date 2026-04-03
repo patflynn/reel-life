@@ -104,6 +104,10 @@ type BlocklistPage struct {
 	Records      []BlocklistItem `json:"records"`
 }
 
+const (
+	CommandMoviesSearch = "MoviesSearch"
+)
+
 type CommandRequest struct {
 	Name     string `json:"name"`
 	MovieIDs []int  `json:"movieIds,omitempty"`

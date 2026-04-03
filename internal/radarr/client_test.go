@@ -375,8 +375,8 @@ func TestCommand(t *testing.T) {
 		}
 		var cmd CommandRequest
 		json.NewDecoder(r.Body).Decode(&cmd)
-		if cmd.Name != "MoviesSearch" {
-			t.Errorf("Name = %q, want MoviesSearch", cmd.Name)
+		if cmd.Name != CommandMoviesSearch {
+			t.Errorf("Name = %q, want %s", cmd.Name, CommandMoviesSearch)
 		}
 		if len(cmd.MovieIDs) != 1 || cmd.MovieIDs[0] != 42 {
 			t.Errorf("MovieIDs = %v, want [42]", cmd.MovieIDs)
@@ -387,7 +387,7 @@ func TestCommand(t *testing.T) {
 	defer srv.Close()
 
 	client := NewClient(srv.URL, "test-key")
-	err := client.Command(context.Background(), CommandRequest{Name: "MoviesSearch", MovieIDs: []int{42}})
+	err := client.Command(context.Background(), CommandRequest{Name: CommandMoviesSearch, MovieIDs: []int{42}})
 	if err != nil {
 		t.Fatalf("Command() error: %v", err)
 	}
