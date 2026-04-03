@@ -60,3 +60,56 @@ type HealthCheck struct {
 	Type    string `json:"type"`
 	Message string `json:"message"`
 }
+
+type QualityProfile struct {
+	ID     int    `json:"id"`
+	Name   string `json:"name"`
+	Cutoff int    `json:"cutoff"`
+}
+
+type RootFolder struct {
+	Path       string `json:"path"`
+	FreeSpace  int64  `json:"freeSpace"`
+	TotalSpace int64  `json:"totalSpace"`
+}
+
+type DownloadClient struct {
+	Name     string `json:"name"`
+	Enable   bool   `json:"enable"`
+	Protocol string `json:"protocol"`
+	Priority int    `json:"priority"`
+}
+
+type Release struct {
+	GUID       string   `json:"guid"`
+	Title      string   `json:"title"`
+	Indexer    string   `json:"indexer"`
+	IndexerID  int      `json:"indexerId"`
+	Quality    string   `json:"quality"`
+	Size       int64    `json:"size"`
+	Age        int      `json:"age"`
+	Rejected   bool     `json:"rejected"`
+	Rejections []string `json:"rejections,omitempty"`
+}
+
+type BlocklistItem struct {
+	ID          int    `json:"id"`
+	MovieID     int    `json:"movieId"`
+	SourceTitle string `json:"sourceTitle"`
+	Date        string `json:"date"`
+}
+
+type BlocklistPage struct {
+	TotalRecords int             `json:"totalRecords"`
+	Records      []BlocklistItem `json:"records"`
+}
+
+type CommandRequest struct {
+	Name     string `json:"name"`
+	MovieIDs []int  `json:"movieIds,omitempty"`
+}
+
+type GrabReleaseRequest struct {
+	GUID      string `json:"guid"`
+	IndexerID int    `json:"indexerId"`
+}

@@ -114,6 +114,39 @@ func (m *mockRadarr) Health(_ context.Context) ([]radarr.HealthCheck, error) {
 func (m *mockRadarr) RemoveFailed(_ context.Context, _ int, _ bool) error {
 	return nil
 }
+func (m *mockRadarr) GetMovie(_ context.Context, id int) (*radarr.Movie, error) {
+	return &radarr.Movie{ID: id, Title: "Test Movie"}, nil
+}
+func (m *mockRadarr) GetQualityProfiles(_ context.Context) ([]radarr.QualityProfile, error) {
+	return []radarr.QualityProfile{{ID: 1, Name: "HD"}}, nil
+}
+func (m *mockRadarr) GetRootFolders(_ context.Context) ([]radarr.RootFolder, error) {
+	return []radarr.RootFolder{{Path: "/movies"}}, nil
+}
+func (m *mockRadarr) GetDownloadClients(_ context.Context) ([]radarr.DownloadClient, error) {
+	return []radarr.DownloadClient{{Name: "qBit", Enable: true}}, nil
+}
+func (m *mockRadarr) GetBlocklist(_ context.Context, _ int) (*radarr.BlocklistPage, error) {
+	return &radarr.BlocklistPage{}, nil
+}
+func (m *mockRadarr) ManualSearch(_ context.Context, _ int) ([]radarr.Release, error) {
+	return []radarr.Release{}, nil
+}
+func (m *mockRadarr) UpdateMovie(_ context.Context, movie *radarr.Movie) (*radarr.Movie, error) {
+	return movie, nil
+}
+func (m *mockRadarr) DeleteMovie(_ context.Context, _ int, _ bool) error {
+	return nil
+}
+func (m *mockRadarr) Command(_ context.Context, _ radarr.CommandRequest) error {
+	return nil
+}
+func (m *mockRadarr) GrabRelease(_ context.Context, _ string, _ int) error {
+	return nil
+}
+func (m *mockRadarr) DeleteBlocklistItem(_ context.Context, _ int) error {
+	return nil
+}
 
 // mockProwlarr implements prowlarr.Client for agent testing.
 type mockProwlarr struct {
