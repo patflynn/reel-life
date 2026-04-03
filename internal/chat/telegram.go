@@ -116,18 +116,36 @@ func (t *Telegram) SendThread(ctx context.Context, message string, threadKey str
 }
 
 // SendAdmin sends a message to the admin chat ID if configured, otherwise
-// falls back to SendThread on the main chat ID.
+// falls back to SendThread on the main chat ID. Messages with the same
+// threadKey are threaded together via reply chains.
 func (t *Telegram) SendAdmin(ctx context.Context, message string, threadKey string) error {
 	if t.adminChatID == 0 {
 		return t.SendThread(ctx, message, threadKey)
 	}
-	for _, chunk := range splitMessage(message, telegramMaxMessageLength) {
+
+	t.mu.Lock()
+	replyTo := t.threads[threadKey]
+	t.mu.Unlock()
+
+	chunks := splitMessage(message, telegramMaxMessageLength)
+	for _, chunk := range chunks {
 		msg := tgbotapi.NewMessage(t.adminChatID, chunk)
-		if _, err := t.bot.Send(msg); err != nil {
+		if replyTo != 0 {
+			msg.ReplyToMessageID = replyTo
+		}
+		sent, err := t.bot.Send(msg)
+		if err != nil {
 			return fmt.Errorf("send telegram admin message: %w", err)
 		}
+		// Track the first message in a new thread so subsequent calls can reply to it.
+		if replyTo == 0 {
+			replyTo = sent.MessageID
+			t.mu.Lock()
+			t.threads[threadKey] = replyTo
+			t.mu.Unlock()
+		}
 	}
-	t.logger.Debug("admin message sent to telegram", "admin_chat_id", t.adminChatID)
+	t.logger.Debug("admin message sent to telegram", "admin_chat_id", t.adminChatID, "thread_key", threadKey)
 	return nil
 }
 
