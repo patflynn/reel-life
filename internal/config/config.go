@@ -63,9 +63,10 @@ type ChatConfig struct {
 }
 
 type AgentConfig struct {
-	Model      string           `yaml:"model"`
-	MaxTokens  int              `yaml:"max_tokens"`
-	RateLimits *RateLimitConfig `yaml:"rate_limits,omitempty"`
+	Model       string           `yaml:"model"`
+	MaxTokens   int              `yaml:"max_tokens"`
+	HistorySize int              `yaml:"history_size"`
+	RateLimits  *RateLimitConfig `yaml:"rate_limits,omitempty"`
 }
 
 // RateLimitConfig controls how many tool calls the agent can make.
@@ -88,8 +89,9 @@ type LogConfig struct {
 func Load(path string) (*Config, error) {
 	cfg := &Config{
 		Agent: AgentConfig{
-			Model:     "claude-sonnet-4-5-20250929",
-			MaxTokens: 4096,
+			Model:       "claude-sonnet-4-5-20250929",
+			MaxTokens:   4096,
+			HistorySize: 20,
 		},
 		Monitor: MonitorConfig{
 			Enabled:  true,

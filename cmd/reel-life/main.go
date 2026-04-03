@@ -70,6 +70,13 @@ func main() {
 		logger.Info("overseerr client configured", "url", overseerrBaseURL)
 	}
 
+	// Build conversation history store.
+	var historyStore *agent.HistoryStore
+	if cfg.Agent.HistorySize > 0 {
+		historyStore = agent.NewHistoryStore(cfg.Agent.HistorySize)
+		logger.Info("conversation history enabled", "max_turns", cfg.Agent.HistorySize)
+	}
+
 	// Select notifier based on backend configuration.
 	var notifier chat.Notifier
 	var telegramBot *chat.Telegram
@@ -80,7 +87,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "error: TELEGRAM_BOT_TOKEN environment variable is required for telegram backend\n")
 			os.Exit(1)
 		}
-		tg, err := chat.NewTelegram(tgToken, cfg.Chat.TelegramChatID, cfg.Chat.TelegramAllowedUsers, logger)
+		tg, err := chat.NewTelegram(tgToken, cfg.Chat.TelegramChatID, cfg.Chat.TelegramAllowedUsers, logger, historyStore)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error creating Telegram client: %v\n", err)
 			os.Exit(1)
@@ -179,7 +186,7 @@ func main() {
 	})
 
 	// Webhook endpoint for incoming Google Chat events
-	webhookHandler := chat.NewWebhookHandler(agentInstance, cfg.Chat.ProjectNumber, logger)
+	webhookHandler := chat.NewWebhookHandler(agentInstance, cfg.Chat.ProjectNumber, logger, historyStore)
 	mux.Handle("POST /webhook", webhookHandler)
 
 	server := &http.Server{

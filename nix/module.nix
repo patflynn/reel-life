@@ -87,6 +87,12 @@ in
       description = "Maximum tokens for agent responses";
     };
 
+    agentHistorySize = lib.mkOption {
+      type = lib.types.int;
+      default = 20;
+      description = "Maximum conversation turns per chat (0 to disable history)";
+    };
+
     monitorEnabled = lib.mkOption {
       type = lib.types.bool;
       default = true;
@@ -200,6 +206,7 @@ in
       agent = {
         model = cfg.agentModel;
         max_tokens = cfg.agentMaxTokens;
+        history_size = cfg.agentHistorySize;
       };
       monitor = {
         enabled = cfg.monitorEnabled;

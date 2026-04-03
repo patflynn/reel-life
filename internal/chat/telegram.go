@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/patflynn/reel-life/internal/agent"
 )
 
 // telegramMaxMessageLength is the maximum length of a Telegram message.
@@ -29,13 +30,14 @@ type Telegram struct {
 	chatID       int64
 	allowedUsers []int64
 	logger       *slog.Logger
+	history      *agent.HistoryStore
 
 	mu      sync.Mutex
 	threads map[string]int // threadKey → message ID
 }
 
 // NewTelegram creates a Telegram adapter and verifies the bot token is valid.
-func NewTelegram(token string, chatID int64, allowedUsers []int64, logger *slog.Logger) (*Telegram, error) {
+func NewTelegram(token string, chatID int64, allowedUsers []int64, logger *slog.Logger, history *agent.HistoryStore) (*Telegram, error) {
 	bot, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
 		return nil, fmt.Errorf("invalid telegram bot token: %w", err)
@@ -46,17 +48,19 @@ func NewTelegram(token string, chatID int64, allowedUsers []int64, logger *slog.
 		chatID:       chatID,
 		allowedUsers: allowedUsers,
 		logger:       logger,
+		history:      history,
 		threads:      make(map[string]int),
 	}, nil
 }
 
 // NewTelegramWithBot creates a Telegram adapter with a pre-configured BotAPI (for testing).
-func NewTelegramWithBot(bot BotAPI, chatID int64, allowedUsers []int64, logger *slog.Logger) *Telegram {
+func NewTelegramWithBot(bot BotAPI, chatID int64, allowedUsers []int64, logger *slog.Logger, history *agent.HistoryStore) *Telegram {
 	return &Telegram{
 		bot:          bot,
 		chatID:       chatID,
 		allowedUsers: allowedUsers,
 		logger:       logger,
+		history:      history,
 		threads:      make(map[string]int),
 	}
 }
@@ -181,10 +185,22 @@ func (t *Telegram) handleUpdate(ctx context.Context, update tgbotapi.Update, pro
 		t.logger.Warn("failed to send typing indicator", "error", err)
 	}
 
-	response, err := processor.Process(ctx, text)
+	chatKey := fmt.Sprintf("%d", msg.Chat.ID)
+	var history []agent.Turn
+	if t.history != nil {
+		history = t.history.Get(chatKey).Turns()
+	}
+
+	response, err := processor.Process(ctx, text, history)
 	if err != nil {
 		t.logger.Error("agent processing failed", "error", err)
 		response = "Sorry, I encountered an error processing your request. Please try again."
+	}
+
+	if t.history != nil {
+		buf := t.history.Get(chatKey)
+		buf.Add("user", text)
+		buf.Add("assistant", response)
 	}
 
 	for _, chunk := range splitMessage(response, telegramMaxMessageLength) {

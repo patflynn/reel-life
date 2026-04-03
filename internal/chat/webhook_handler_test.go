@@ -9,23 +9,27 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/patflynn/reel-life/internal/agent"
 )
 
 // fakeProcessor implements MessageProcessor for testing.
 type fakeProcessor struct {
 	lastMessage string
+	lastHistory []agent.Turn
 	reply       string
 	err         error
 }
 
-func (f *fakeProcessor) Process(_ context.Context, msg string) (string, error) {
+func (f *fakeProcessor) Process(_ context.Context, msg string, history []agent.Turn) (string, error) {
 	f.lastMessage = msg
+	f.lastHistory = history
 	return f.reply, f.err
 }
 
 func TestWebhookHandlerMessage(t *testing.T) {
 	proc := &fakeProcessor{reply: "Found 3 results for Breaking Bad"}
-	handler := NewWebhookHandler(proc, "", slog.Default())
+	handler := NewWebhookHandler(proc, "", slog.Default(), nil)
 
 	event := `{
 		"type": "MESSAGE",
@@ -55,7 +59,7 @@ func TestWebhookHandlerMessage(t *testing.T) {
 
 func TestWebhookHandlerArgumentTextPreferred(t *testing.T) {
 	proc := &fakeProcessor{reply: "ok"}
-	handler := NewWebhookHandler(proc, "", slog.Default())
+	handler := NewWebhookHandler(proc, "", slog.Default(), nil)
 
 	event := `{
 		"type": "MESSAGE",
@@ -73,7 +77,7 @@ func TestWebhookHandlerArgumentTextPreferred(t *testing.T) {
 
 func TestWebhookHandlerAddedToSpace(t *testing.T) {
 	proc := &fakeProcessor{}
-	handler := NewWebhookHandler(proc, "", slog.Default())
+	handler := NewWebhookHandler(proc, "", slog.Default(), nil)
 
 	event := `{
 		"type": "ADDED_TO_SPACE",
@@ -100,7 +104,7 @@ func TestWebhookHandlerAddedToSpace(t *testing.T) {
 
 func TestWebhookHandlerRemovedFromSpace(t *testing.T) {
 	proc := &fakeProcessor{}
-	handler := NewWebhookHandler(proc, "", slog.Default())
+	handler := NewWebhookHandler(proc, "", slog.Default(), nil)
 
 	event := `{
 		"type": "REMOVED_FROM_SPACE",
@@ -123,7 +127,7 @@ func TestWebhookHandlerRemovedFromSpace(t *testing.T) {
 
 func TestWebhookHandlerEmptyMessage(t *testing.T) {
 	proc := &fakeProcessor{}
-	handler := NewWebhookHandler(proc, "", slog.Default())
+	handler := NewWebhookHandler(proc, "", slog.Default(), nil)
 
 	event := `{"type": "MESSAGE", "message": {"text": ""}}`
 	req := httptest.NewRequest(http.MethodPost, "/webhook", strings.NewReader(event))
@@ -139,7 +143,7 @@ func TestWebhookHandlerEmptyMessage(t *testing.T) {
 
 func TestWebhookHandlerProcessError(t *testing.T) {
 	proc := &fakeProcessor{err: context.DeadlineExceeded}
-	handler := NewWebhookHandler(proc, "", slog.Default())
+	handler := NewWebhookHandler(proc, "", slog.Default(), nil)
 
 	event := `{"type": "MESSAGE", "message": {"text": "hello"}}`
 	req := httptest.NewRequest(http.MethodPost, "/webhook", strings.NewReader(event))
@@ -154,7 +158,7 @@ func TestWebhookHandlerProcessError(t *testing.T) {
 }
 
 func TestWebhookHandlerInvalidJSON(t *testing.T) {
-	handler := NewWebhookHandler(&fakeProcessor{}, "", slog.Default())
+	handler := NewWebhookHandler(&fakeProcessor{}, "", slog.Default(), nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/webhook", strings.NewReader("not json"))
 	w := httptest.NewRecorder()
@@ -166,7 +170,7 @@ func TestWebhookHandlerInvalidJSON(t *testing.T) {
 }
 
 func TestWebhookHandlerJWTRequired(t *testing.T) {
-	handler := NewWebhookHandler(&fakeProcessor{}, "12345", slog.Default())
+	handler := NewWebhookHandler(&fakeProcessor{}, "12345", slog.Default(), nil)
 
 	// No Authorization header — should be rejected.
 	event := `{"type": "MESSAGE", "message": {"text": "hello"}}`
@@ -181,7 +185,7 @@ func TestWebhookHandlerJWTRequired(t *testing.T) {
 
 func TestWebhookHandlerJWTSkippedWhenNoProjectNumber(t *testing.T) {
 	proc := &fakeProcessor{reply: "ok"}
-	handler := NewWebhookHandler(proc, "", slog.Default())
+	handler := NewWebhookHandler(proc, "", slog.Default(), nil)
 
 	event := `{"type": "MESSAGE", "message": {"text": "hello"}}`
 	req := httptest.NewRequest(http.MethodPost, "/webhook", strings.NewReader(event))
@@ -195,7 +199,7 @@ func TestWebhookHandlerJWTSkippedWhenNoProjectNumber(t *testing.T) {
 }
 
 func TestWebhookHandlerUnknownEventType(t *testing.T) {
-	handler := NewWebhookHandler(&fakeProcessor{}, "", slog.Default())
+	handler := NewWebhookHandler(&fakeProcessor{}, "", slog.Default(), nil)
 
 	event := `{"type": "CARD_CLICKED"}`
 	req := httptest.NewRequest(http.MethodPost, "/webhook", strings.NewReader(event))
