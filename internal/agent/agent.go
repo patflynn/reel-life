@@ -135,11 +135,20 @@ func (a *Agent) buildSystemPrompt(ctx context.Context) string {
 }
 
 // Process runs the agentic tool-use loop for a user message and returns the final text response.
-func (a *Agent) Process(ctx context.Context, userMessage string) (string, error) {
+// History turns are prepended to provide conversational context.
+func (a *Agent) Process(ctx context.Context, userMessage string, history []Turn) (string, error) {
 	tools := toolDefinitions()
-	messages := []anthropic.MessageParam{
-		anthropic.NewUserMessage(anthropic.NewTextBlock(userMessage)),
+
+	var messages []anthropic.MessageParam
+	for _, t := range history {
+		switch t.Role {
+		case "user":
+			messages = append(messages, anthropic.NewUserMessage(anthropic.NewTextBlock(t.Content)))
+		case "assistant":
+			messages = append(messages, anthropic.NewAssistantMessage(anthropic.NewTextBlock(t.Content)))
+		}
 	}
+	messages = append(messages, anthropic.NewUserMessage(anthropic.NewTextBlock(userMessage)))
 
 	if a.limiter != nil {
 		a.limiter.Reset()

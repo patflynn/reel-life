@@ -15,11 +15,12 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/patflynn/reel-life/internal/agent"
 )
 
 // MessageProcessor handles an incoming user message and returns a text response.
 type MessageProcessor interface {
-	Process(ctx context.Context, userMessage string) (string, error)
+	Process(ctx context.Context, userMessage string, history []agent.Turn) (string, error)
 }
 
 // Event represents a Google Chat event payload.
@@ -58,16 +59,18 @@ type WebhookHandler struct {
 	projectNumber string
 	logger        *slog.Logger
 	keyCache      *jwkCache
+	history       *agent.HistoryStore
 }
 
 // NewWebhookHandler creates a handler that routes Google Chat events to the given processor.
 // projectNumber is used as the expected JWT audience; pass empty string to skip JWT validation.
-func NewWebhookHandler(processor MessageProcessor, projectNumber string, logger *slog.Logger) *WebhookHandler {
+func NewWebhookHandler(processor MessageProcessor, projectNumber string, logger *slog.Logger, history *agent.HistoryStore) *WebhookHandler {
 	return &WebhookHandler{
 		processor:     processor,
 		projectNumber: projectNumber,
 		logger:        logger,
 		keyCache:      &jwkCache{},
+		history:       history,
 	}
 }
 
@@ -136,10 +139,22 @@ func (h *WebhookHandler) handleMessage(ctx context.Context, event *Event) Respon
 	}
 	h.logger.Info("processing chat message", "user", userName, "text_length", len(text))
 
-	reply, err := h.processor.Process(ctx, text)
+	var history []agent.Turn
+	chatKey := spaceName(event.Space)
+	if h.history != nil && chatKey != "" {
+		history = h.history.Get(chatKey).Turns()
+	}
+
+	reply, err := h.processor.Process(ctx, text, history)
 	if err != nil {
 		h.logger.Error("agent processing failed", "error", err)
 		return Response{Text: "Sorry, I encountered an error processing your request. Please try again."}
+	}
+
+	if h.history != nil && chatKey != "" {
+		buf := h.history.Get(chatKey)
+		buf.Add("user", text)
+		buf.Add("assistant", reply)
 	}
 
 	return Response{Text: reply}
