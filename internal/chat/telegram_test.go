@@ -1,8 +1,12 @@
 package chat
 
 import (
+	"context"
+	"log/slog"
 	"strings"
 	"testing"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 func TestSplitMessageShort(t *testing.T) {
@@ -78,5 +82,60 @@ func TestIsAllowedEmptyListRejectsAll(t *testing.T) {
 	}
 	if isAllowed(12345, []int64{}) {
 		t.Error("expected empty allowlist to reject all users")
+	}
+}
+
+// fakeBotAPI is a minimal BotAPI implementation for testing Send routing.
+type fakeBotAPI struct {
+	sentChatIDs []int64
+}
+
+func (f *fakeBotAPI) Send(c tgbotapi.Chattable) (tgbotapi.Message, error) {
+	if msg, ok := c.(tgbotapi.MessageConfig); ok {
+		f.sentChatIDs = append(f.sentChatIDs, msg.ChatID)
+	}
+	return tgbotapi.Message{MessageID: 1}, nil
+}
+
+func (f *fakeBotAPI) Request(_ tgbotapi.Chattable) (*tgbotapi.APIResponse, error) {
+	return &tgbotapi.APIResponse{Ok: true}, nil
+}
+
+func (f *fakeBotAPI) GetUpdatesChan(_ tgbotapi.UpdateConfig) tgbotapi.UpdatesChannel {
+	return make(chan tgbotapi.Update)
+}
+
+func (f *fakeBotAPI) StopReceivingUpdates() {}
+
+func TestSendAdminUsesAdminChatID(t *testing.T) {
+	bot := &fakeBotAPI{}
+	tg := NewTelegramWithBot(bot, 100, 200, nil, slog.Default(), nil)
+
+	if err := tg.SendAdmin(context.Background(), "health alert", "sonarr-health"); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(bot.sentChatIDs) != 1 {
+		t.Fatalf("expected 1 message, got %d", len(bot.sentChatIDs))
+	}
+	if bot.sentChatIDs[0] != 200 {
+		t.Errorf("expected message to admin chat 200, got %d", bot.sentChatIDs[0])
+	}
+}
+
+func TestSendAdminFallsBackToMainChat(t *testing.T) {
+	bot := &fakeBotAPI{}
+	// adminChatID=0 means fall back to main chat
+	tg := NewTelegramWithBot(bot, 100, 0, nil, slog.Default(), nil)
+
+	if err := tg.SendAdmin(context.Background(), "health alert", "sonarr-health"); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(bot.sentChatIDs) != 1 {
+		t.Fatalf("expected 1 message, got %d", len(bot.sentChatIDs))
+	}
+	if bot.sentChatIDs[0] != 100 {
+		t.Errorf("expected message to main chat 100, got %d", bot.sentChatIDs[0])
 	}
 }

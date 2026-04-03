@@ -88,7 +88,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "error: TELEGRAM_BOT_TOKEN environment variable is required for telegram backend\n")
 			os.Exit(1)
 		}
-		tg, err := chat.NewTelegram(tgToken, cfg.Chat.TelegramChatID, cfg.Chat.TelegramAllowedUsers, logger, historyStore)
+		tg, err := chat.NewTelegram(tgToken, cfg.Chat.TelegramChatID, cfg.Chat.TelegramAdminChatID, cfg.Chat.TelegramAllowedUsers, logger, historyStore)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error creating Telegram client: %v\n", err)
 			os.Exit(1)

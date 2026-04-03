@@ -67,6 +67,10 @@ func (g *GoogleChatApp) Send(ctx context.Context, message string) error {
 	return g.postAPI(ctx, url, apiMessage{Text: message})
 }
 
+func (g *GoogleChatApp) SendAdmin(ctx context.Context, message string, threadKey string) error {
+	return g.SendThread(ctx, message, threadKey)
+}
+
 func (g *GoogleChatApp) SendThread(ctx context.Context, message string, threadKey string) error {
 	url := fmt.Sprintf("%s/%s/messages?messageReplyOption=REPLY_MESSAGE_FALLBACK_TO_NEW_THREAD", chatAPIBase, g.space)
 	msg := apiMessage{

@@ -99,7 +99,7 @@ func (m *Monitor) alert(ctx context.Context, issues []sonarr.HealthCheck) {
 	msg := b.String()
 	m.logger.Warn("sending health alert", "issues", len(issues))
 
-	if err := m.notifier.SendThread(ctx, msg, "sonarr-health"); err != nil {
+	if err := m.notifier.SendAdmin(ctx, msg, "sonarr-health"); err != nil {
 		m.logger.Error("failed to send alert", "error", err)
 	}
 }
