@@ -344,6 +344,49 @@ func TestGetDownloadClients(t *testing.T) {
 	}
 }
 
+func TestUpdateSeries(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut {
+			t.Errorf("expected PUT, got %s", r.Method)
+		}
+		if r.URL.Path != "/api/v3/series/1" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+
+		var s Series
+		json.NewDecoder(r.Body).Decode(&s)
+		if len(s.Seasons) != 2 {
+			t.Fatalf("expected 2 seasons, got %d", len(s.Seasons))
+		}
+		if !s.Seasons[1].Monitored {
+			t.Errorf("expected season 2 to be monitored")
+		}
+
+		json.NewEncoder(w).Encode(s)
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL, "test-key")
+	series := &Series{
+		ID:    1,
+		Title: "Breaking Bad",
+		Seasons: []Season{
+			{SeasonNumber: 1, Monitored: true},
+			{SeasonNumber: 2, Monitored: true},
+		},
+	}
+	updated, err := client.UpdateSeries(context.Background(), series)
+	if err != nil {
+		t.Fatalf("UpdateSeries() error: %v", err)
+	}
+	if updated.Title != "Breaking Bad" {
+		t.Errorf("Title = %q, want %q", updated.Title, "Breaking Bad")
+	}
+	if len(updated.Seasons) != 2 {
+		t.Errorf("expected 2 seasons, got %d", len(updated.Seasons))
+	}
+}
+
 func TestHistory(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/v3/history" {

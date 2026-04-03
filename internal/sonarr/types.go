@@ -1,20 +1,26 @@
 package sonarr
 
+type Season struct {
+	SeasonNumber int  `json:"seasonNumber"`
+	Monitored    bool `json:"monitored"`
+}
+
 type Series struct {
-	ID               int    `json:"id"`
-	Title            string `json:"title"`
-	Year             int    `json:"year"`
-	TVDBID           int    `json:"tvdbId"`
-	Status           string `json:"status"`
-	Overview         string `json:"overview"`
-	Monitored        bool   `json:"monitored"`
-	SeasonCount      int    `json:"seasonCount"`
-	EpisodeCount     int    `json:"episodeCount,omitempty"`
-	EpisodeFileCount int    `json:"episodeFileCount,omitempty"`
-	SizeOnDisk       int64  `json:"sizeOnDisk,omitempty"`
-	RootFolderPath   string `json:"rootFolderPath"`
-	Path             string `json:"path,omitempty"`
-	QualityProfileID int    `json:"qualityProfileId"`
+	ID               int      `json:"id"`
+	Title            string   `json:"title"`
+	Year             int      `json:"year"`
+	TVDBID           int      `json:"tvdbId"`
+	Status           string   `json:"status"`
+	Overview         string   `json:"overview"`
+	Monitored        bool     `json:"monitored"`
+	SeasonCount      int      `json:"seasonCount"`
+	Seasons          []Season `json:"seasons,omitempty"`
+	EpisodeCount     int      `json:"episodeCount,omitempty"`
+	EpisodeFileCount int      `json:"episodeFileCount,omitempty"`
+	SizeOnDisk       int64    `json:"sizeOnDisk,omitempty"`
+	RootFolderPath   string   `json:"rootFolderPath"`
+	Path             string   `json:"path,omitempty"`
+	QualityProfileID int      `json:"qualityProfileId"`
 }
 
 type AddSeriesRequest struct {

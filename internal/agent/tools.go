@@ -46,6 +46,12 @@ type getBlocklistInput struct {
 	PageSize int `json:"page_size,omitempty" jsonschema_description:"Number of blocklist records to return"`
 }
 
+type updateSeriesMonitoringInput struct {
+	SeriesID     int  `json:"series_id" jsonschema_description:"Sonarr series ID"`
+	SeasonNumber int  `json:"season_number" jsonschema_description:"Season number to update monitoring for"`
+	Monitored    bool `json:"monitored" jsonschema_description:"Whether to enable (true) or disable (false) monitoring"`
+}
+
 type searchMoviesInput struct {
 	Term string `json:"term" jsonschema_description:"The search term to look up movies"`
 }
@@ -133,8 +139,9 @@ type toolDef struct {
 
 // destructiveTools is the set of tools that modify state.
 var destructiveTools = map[string]bool{
-	"add_series":          true,
-	"remove_failed":       true,
+	"add_series":                 true,
+	"remove_failed":              true,
+	"update_series_monitoring":   true,
 	"add_movie":           true,
 	"remove_failed_movie": true,
 	"approve_request":     true,
@@ -258,6 +265,14 @@ func sonarrToolDefs() []toolDef {
 				Description: anthropic.String("List configured download clients with their status, protocol, and priority."),
 				InputSchema: generateSchema[struct{}](),
 			},
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "update_series_monitoring",
+				Description: anthropic.String("Enable or disable monitoring for a specific season of a series. Use get_series_detail first to find the series ID."),
+				InputSchema: generateSchema[updateSeriesMonitoringInput](),
+			},
+			Destructive: true,
 		},
 	}
 }
