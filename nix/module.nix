@@ -135,6 +135,36 @@ in
       description = "Telegram user IDs allowed to interact with the bot";
     };
 
+    radarrUrl = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      description = "Radarr base URL (leave empty to disable)";
+    };
+
+    prowlarrUrl = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      description = "Prowlarr base URL (leave empty to disable)";
+    };
+
+    overseerrUrl = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      description = "Overseerr base URL (leave empty to disable)";
+    };
+
+    notebookEnabled = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Whether to enable the persistent notebook";
+    };
+
+    notebookPath = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      description = "Path for persistent notebook storage";
+    };
+
     restrictNetwork = lib.mkOption {
       type = lib.types.bool;
       default = false;
@@ -159,24 +189,42 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    environment.etc."reel-life/config.yaml".text = ''
-      sonarr:
-        base_url: "${cfg.sonarrUrl}"
-      chat:
-        backend: "${cfg.chatBackend}"
-    '' + (lib.optionalString (cfg.chatBackend == "telegram") "  telegram_chat_id: ${toString cfg.chatTelegramChatID}\n  telegram_allowed_users: [${lib.concatMapStringsSep ", " toString cfg.chatTelegramAllowedUsers}]\n") + ''
-      agent:
-        model: "${cfg.agentModel}"
-        max_tokens: ${toString cfg.agentMaxTokens}
-      monitor:
-        enabled: ${lib.boolToString cfg.monitorEnabled}
-        interval: "${cfg.monitorInterval}"
-      log:
-        level: "${cfg.logLevel}"
-        format: "${cfg.logFormat}"
-      server:
-        port: ${toString cfg.listenPort}
-    '';
+    environment.etc."reel-life/config.yaml".text = builtins.toJSON ({
+      sonarr = { base_url = cfg.sonarrUrl; };
+      chat = {
+        backend = cfg.chatBackend;
+      } // lib.optionalAttrs (cfg.chatBackend == "telegram") {
+        telegram_chat_id = cfg.chatTelegramChatID;
+        telegram_allowed_users = cfg.chatTelegramAllowedUsers;
+      };
+      agent = {
+        model = cfg.agentModel;
+        max_tokens = cfg.agentMaxTokens;
+      };
+      monitor = {
+        enabled = cfg.monitorEnabled;
+        interval = cfg.monitorInterval;
+      };
+      log = {
+        level = cfg.logLevel;
+        format = cfg.logFormat;
+      };
+      server = {
+        port = cfg.listenPort;
+      };
+    } // lib.optionalAttrs (cfg.radarrUrl != "") {
+      radarr = { base_url = cfg.radarrUrl; };
+    } // lib.optionalAttrs (cfg.prowlarrUrl != "") {
+      prowlarr = { base_url = cfg.prowlarrUrl; };
+    } // lib.optionalAttrs (cfg.overseerrUrl != "") {
+      overseerr = { base_url = cfg.overseerrUrl; };
+    } // lib.optionalAttrs cfg.notebookEnabled {
+      notebook = {
+        enabled = true;
+      } // lib.optionalAttrs (cfg.notebookPath != "") {
+        path = cfg.notebookPath;
+      };
+    });
 
     systemd.services.reel-life = {
       description = "reel-life media chatops agent";
