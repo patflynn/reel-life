@@ -25,6 +25,27 @@ type getHistoryInput struct {
 	PageSize int `json:"page_size,omitempty" jsonschema_description:"Number of history records to return (default 20)"`
 }
 
+type getSeriesDetailInput struct {
+	SeriesID int `json:"series_id" jsonschema_description:"Sonarr series ID"`
+}
+
+type getEpisodesInput struct {
+	SeriesID int `json:"series_id" jsonschema_description:"Sonarr series ID"`
+}
+
+type getLogsInput struct {
+	PageSize int    `json:"page_size,omitempty" jsonschema_description:"Number of log records to return"`
+	Level    string `json:"level,omitempty" jsonschema_description:"Filter by log level: info, warn, or error"`
+}
+
+type manualSearchInput struct {
+	EpisodeID int `json:"episode_id" jsonschema_description:"Episode ID to search releases for"`
+}
+
+type getBlocklistInput struct {
+	PageSize int `json:"page_size,omitempty" jsonschema_description:"Number of blocklist records to return"`
+}
+
 type searchMoviesInput struct {
 	Term string `json:"term" jsonschema_description:"The search term to look up movies"`
 }
@@ -181,6 +202,62 @@ func sonarrToolDefs() []toolDef {
 				InputSchema: generateSchema[removeFailedInput](),
 			},
 			Destructive: true,
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "get_series_detail",
+				Description: anthropic.String("Get detailed information about a specific series including episode counts, size on disk, and quality profile."),
+				InputSchema: generateSchema[getSeriesDetailInput](),
+			},
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "get_episodes",
+				Description: anthropic.String("Get all episodes for a series with season/episode numbers, titles, file status, and air dates."),
+				InputSchema: generateSchema[getEpisodesInput](),
+			},
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "get_logs",
+				Description: anthropic.String("Get recent Sonarr log entries for debugging. Optionally filter by level (info, warn, error)."),
+				InputSchema: generateSchema[getLogsInput](),
+			},
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "manual_search",
+				Description: anthropic.String("Search for available releases for a specific episode. Shows indexer, quality, size, and rejection reasons."),
+				InputSchema: generateSchema[manualSearchInput](),
+			},
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "get_quality_profiles",
+				Description: anthropic.String("List all quality profiles configured in Sonarr with their cutoff settings."),
+				InputSchema: generateSchema[struct{}](),
+			},
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "get_blocklist",
+				Description: anthropic.String("Get blocklisted releases that Sonarr will not re-download."),
+				InputSchema: generateSchema[getBlocklistInput](),
+			},
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "get_root_folders",
+				Description: anthropic.String("List root folders with free and total disk space."),
+				InputSchema: generateSchema[struct{}](),
+			},
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "get_download_clients",
+				Description: anthropic.String("List configured download clients with their status, protocol, and priority."),
+				InputSchema: generateSchema[struct{}](),
+			},
 		},
 	}
 }

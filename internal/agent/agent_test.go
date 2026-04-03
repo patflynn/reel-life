@@ -16,10 +16,18 @@ import (
 
 // mockSonarr implements sonarr.Client for agent testing.
 type mockSonarr struct {
-	searchResult  []sonarr.Series
-	healthResult  []sonarr.HealthCheck
-	queueResult   *sonarr.QueuePage
-	historyResult *sonarr.HistoryPage
+	searchResult          []sonarr.Series
+	healthResult          []sonarr.HealthCheck
+	queueResult           *sonarr.QueuePage
+	historyResult         *sonarr.HistoryPage
+	seriesResult          *sonarr.Series
+	episodesResult        []sonarr.Episode
+	logsResult            []sonarr.LogRecord
+	releasesResult        []sonarr.Release
+	qualityProfilesResult []sonarr.QualityProfile
+	blocklistResult       *sonarr.BlocklistPage
+	rootFoldersResult     []sonarr.RootFolder
+	downloadClientsResult []sonarr.DownloadClient
 }
 
 func (m *mockSonarr) Search(_ context.Context, _ string) ([]sonarr.Series, error) {
@@ -39,6 +47,30 @@ func (m *mockSonarr) Health(_ context.Context) ([]sonarr.HealthCheck, error) {
 }
 func (m *mockSonarr) RemoveFailed(_ context.Context, _ int, _ bool) error {
 	return nil
+}
+func (m *mockSonarr) GetSeries(_ context.Context, _ int) (*sonarr.Series, error) {
+	return m.seriesResult, nil
+}
+func (m *mockSonarr) GetEpisodes(_ context.Context, _ int) ([]sonarr.Episode, error) {
+	return m.episodesResult, nil
+}
+func (m *mockSonarr) GetLogs(_ context.Context, _ int, _ string) ([]sonarr.LogRecord, error) {
+	return m.logsResult, nil
+}
+func (m *mockSonarr) ManualSearch(_ context.Context, _ int) ([]sonarr.Release, error) {
+	return m.releasesResult, nil
+}
+func (m *mockSonarr) GetQualityProfiles(_ context.Context) ([]sonarr.QualityProfile, error) {
+	return m.qualityProfilesResult, nil
+}
+func (m *mockSonarr) GetBlocklist(_ context.Context, _ int) (*sonarr.BlocklistPage, error) {
+	return m.blocklistResult, nil
+}
+func (m *mockSonarr) GetRootFolders(_ context.Context) ([]sonarr.RootFolder, error) {
+	return m.rootFoldersResult, nil
+}
+func (m *mockSonarr) GetDownloadClients(_ context.Context) ([]sonarr.DownloadClient, error) {
+	return m.downloadClientsResult, nil
 }
 
 // mockRadarr implements radarr.Client for agent testing.
@@ -812,5 +844,198 @@ func TestDispatchNotebookWriteInvalidType(t *testing.T) {
 	_, isErr := a.dispatchTool(context.Background(), "notebook_write", input)
 	if !isErr {
 		t.Fatal("expected error for invalid note type")
+	}
+}
+
+func TestDispatchGetSeriesDetail(t *testing.T) {
+	mock := &mockSonarr{
+		seriesResult: &sonarr.Series{ID: 1, Title: "Breaking Bad", EpisodeCount: 62, EpisodeFileCount: 62, SizeOnDisk: 100000},
+	}
+	a := newTestAgent()
+	a.sonarr = mock
+
+	input, _ := json.Marshal(getSeriesDetailInput{SeriesID: 1})
+	result, isErr := a.dispatchTool(context.Background(), "get_series_detail", input)
+	if isErr {
+		t.Fatalf("unexpected error: %s", result)
+	}
+
+	var series sonarr.Series
+	if err := json.Unmarshal([]byte(result), &series); err != nil {
+		t.Fatalf("unmarshal result: %v", err)
+	}
+	if series.Title != "Breaking Bad" || series.EpisodeCount != 62 {
+		t.Errorf("unexpected result: %s", result)
+	}
+}
+
+func TestDispatchGetEpisodes(t *testing.T) {
+	mock := &mockSonarr{
+		episodesResult: []sonarr.Episode{
+			{ID: 1, SeasonNumber: 1, EpisodeNumber: 1, Title: "Pilot", HasFile: true},
+		},
+	}
+	a := newTestAgent()
+	a.sonarr = mock
+
+	input, _ := json.Marshal(getEpisodesInput{SeriesID: 1})
+	result, isErr := a.dispatchTool(context.Background(), "get_episodes", input)
+	if isErr {
+		t.Fatalf("unexpected error: %s", result)
+	}
+
+	var episodes []sonarr.Episode
+	if err := json.Unmarshal([]byte(result), &episodes); err != nil {
+		t.Fatalf("unmarshal result: %v", err)
+	}
+	if len(episodes) != 1 || episodes[0].Title != "Pilot" {
+		t.Errorf("unexpected result: %s", result)
+	}
+}
+
+func TestDispatchGetLogs(t *testing.T) {
+	mock := &mockSonarr{
+		logsResult: []sonarr.LogRecord{
+			{Time: "2026-01-01", Level: "error", Logger: "SonarrLogger", Message: "test error"},
+		},
+	}
+	a := newTestAgent()
+	a.sonarr = mock
+
+	input, _ := json.Marshal(getLogsInput{PageSize: 10, Level: "error"})
+	result, isErr := a.dispatchTool(context.Background(), "get_logs", input)
+	if isErr {
+		t.Fatalf("unexpected error: %s", result)
+	}
+
+	var logs []sonarr.LogRecord
+	if err := json.Unmarshal([]byte(result), &logs); err != nil {
+		t.Fatalf("unmarshal result: %v", err)
+	}
+	if len(logs) != 1 || logs[0].Level != "error" {
+		t.Errorf("unexpected result: %s", result)
+	}
+}
+
+func TestDispatchManualSearch(t *testing.T) {
+	mock := &mockSonarr{
+		releasesResult: []sonarr.Release{
+			{Title: "Breaking.Bad.S01E01.1080p", Indexer: "NZBgeek", Size: 1400000000, Rejected: false},
+		},
+	}
+	a := newTestAgent()
+	a.sonarr = mock
+
+	input, _ := json.Marshal(manualSearchInput{EpisodeID: 1})
+	result, isErr := a.dispatchTool(context.Background(), "manual_search", input)
+	if isErr {
+		t.Fatalf("unexpected error: %s", result)
+	}
+
+	var releases []sonarr.Release
+	if err := json.Unmarshal([]byte(result), &releases); err != nil {
+		t.Fatalf("unmarshal result: %v", err)
+	}
+	if len(releases) != 1 || releases[0].Indexer != "NZBgeek" {
+		t.Errorf("unexpected result: %s", result)
+	}
+}
+
+func TestDispatchGetQualityProfiles(t *testing.T) {
+	mock := &mockSonarr{
+		qualityProfilesResult: []sonarr.QualityProfile{
+			{ID: 1, Name: "HD-1080p", Cutoff: 7},
+		},
+	}
+	a := newTestAgent()
+	a.sonarr = mock
+
+	input, _ := json.Marshal(struct{}{})
+	result, isErr := a.dispatchTool(context.Background(), "get_quality_profiles", input)
+	if isErr {
+		t.Fatalf("unexpected error: %s", result)
+	}
+
+	var profiles []sonarr.QualityProfile
+	if err := json.Unmarshal([]byte(result), &profiles); err != nil {
+		t.Fatalf("unmarshal result: %v", err)
+	}
+	if len(profiles) != 1 || profiles[0].Name != "HD-1080p" {
+		t.Errorf("unexpected result: %s", result)
+	}
+}
+
+func TestDispatchGetBlocklist(t *testing.T) {
+	mock := &mockSonarr{
+		blocklistResult: &sonarr.BlocklistPage{
+			TotalRecords: 1,
+			Records: []sonarr.BlocklistItem{
+				{ID: 1, SeriesID: 1, SourceTitle: "Bad.Release", Date: "2026-01-01"},
+			},
+		},
+	}
+	a := newTestAgent()
+	a.sonarr = mock
+
+	input, _ := json.Marshal(getBlocklistInput{PageSize: 10})
+	result, isErr := a.dispatchTool(context.Background(), "get_blocklist", input)
+	if isErr {
+		t.Fatalf("unexpected error: %s", result)
+	}
+
+	var page sonarr.BlocklistPage
+	if err := json.Unmarshal([]byte(result), &page); err != nil {
+		t.Fatalf("unmarshal result: %v", err)
+	}
+	if page.TotalRecords != 1 {
+		t.Errorf("expected 1 record, got %d", page.TotalRecords)
+	}
+}
+
+func TestDispatchGetRootFolders(t *testing.T) {
+	mock := &mockSonarr{
+		rootFoldersResult: []sonarr.RootFolder{
+			{Path: "/tv", FreeSpace: 500000000000, TotalSpace: 1000000000000},
+		},
+	}
+	a := newTestAgent()
+	a.sonarr = mock
+
+	input, _ := json.Marshal(struct{}{})
+	result, isErr := a.dispatchTool(context.Background(), "get_root_folders", input)
+	if isErr {
+		t.Fatalf("unexpected error: %s", result)
+	}
+
+	var folders []sonarr.RootFolder
+	if err := json.Unmarshal([]byte(result), &folders); err != nil {
+		t.Fatalf("unmarshal result: %v", err)
+	}
+	if len(folders) != 1 || folders[0].Path != "/tv" {
+		t.Errorf("unexpected result: %s", result)
+	}
+}
+
+func TestDispatchGetDownloadClients(t *testing.T) {
+	mock := &mockSonarr{
+		downloadClientsResult: []sonarr.DownloadClient{
+			{Name: "SABnzbd", Enable: true, Protocol: "usenet", Priority: 1},
+		},
+	}
+	a := newTestAgent()
+	a.sonarr = mock
+
+	input, _ := json.Marshal(struct{}{})
+	result, isErr := a.dispatchTool(context.Background(), "get_download_clients", input)
+	if isErr {
+		t.Fatalf("unexpected error: %s", result)
+	}
+
+	var clients []sonarr.DownloadClient
+	if err := json.Unmarshal([]byte(result), &clients); err != nil {
+		t.Fatalf("unmarshal result: %v", err)
+	}
+	if len(clients) != 1 || clients[0].Name != "SABnzbd" {
+		t.Errorf("unexpected result: %s", result)
 	}
 }

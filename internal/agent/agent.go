@@ -26,6 +26,10 @@ Your capabilities:
 - Review download history for recent activity
 - Monitor system health and report any issues
 - Remove failed downloads and manage the blocklist
+- Get detailed series info and episode status
+- Search for available releases and see why they were accepted/rejected
+- View Sonarr logs for debugging
+- Check quality profiles, blocklist, root folders, and download client status
 - Manage indexers via Prowlarr: list, test, check stats and health, search across indexers
 - List, approve, and decline media requests from Overseerr
 - Search for movies and TV shows in Overseerr's media database
@@ -310,6 +314,50 @@ func (a *Agent) dispatchTool(ctx context.Context, name string, rawInput json.Raw
 		if err == nil {
 			result = map[string]string{"status": "removed"}
 		}
+
+	case "get_series_detail":
+		var input getSeriesDetailInput
+		if err := json.Unmarshal(rawInput, &input); err != nil {
+			return jsonError("invalid input: " + err.Error()), true
+		}
+		result, err = a.sonarr.GetSeries(ctx, input.SeriesID)
+
+	case "get_episodes":
+		var input getEpisodesInput
+		if err := json.Unmarshal(rawInput, &input); err != nil {
+			return jsonError("invalid input: " + err.Error()), true
+		}
+		result, err = a.sonarr.GetEpisodes(ctx, input.SeriesID)
+
+	case "get_logs":
+		var input getLogsInput
+		if err := json.Unmarshal(rawInput, &input); err != nil {
+			return jsonError("invalid input: " + err.Error()), true
+		}
+		result, err = a.sonarr.GetLogs(ctx, input.PageSize, input.Level)
+
+	case "manual_search":
+		var input manualSearchInput
+		if err := json.Unmarshal(rawInput, &input); err != nil {
+			return jsonError("invalid input: " + err.Error()), true
+		}
+		result, err = a.sonarr.ManualSearch(ctx, input.EpisodeID)
+
+	case "get_quality_profiles":
+		result, err = a.sonarr.GetQualityProfiles(ctx)
+
+	case "get_blocklist":
+		var input getBlocklistInput
+		if err := json.Unmarshal(rawInput, &input); err != nil {
+			return jsonError("invalid input: " + err.Error()), true
+		}
+		result, err = a.sonarr.GetBlocklist(ctx, input.PageSize)
+
+	case "get_root_folders":
+		result, err = a.sonarr.GetRootFolders(ctx)
+
+	case "get_download_clients":
+		result, err = a.sonarr.GetDownloadClients(ctx)
 
 	case "search_movies", "add_movie", "get_movie_queue", "get_movie_history", "check_movie_health", "remove_failed_movie":
 		if a.radarr == nil {

@@ -29,6 +29,30 @@ func (m *mockSonarr) Health(ctx context.Context) ([]sonarr.HealthCheck, error) {
 	return m.healthFn()
 }
 func (m *mockSonarr) RemoveFailed(_ context.Context, _ int, _ bool) error { return nil }
+func (m *mockSonarr) GetSeries(_ context.Context, _ int) (*sonarr.Series, error) {
+	return nil, nil
+}
+func (m *mockSonarr) GetEpisodes(_ context.Context, _ int) ([]sonarr.Episode, error) {
+	return nil, nil
+}
+func (m *mockSonarr) GetLogs(_ context.Context, _ int, _ string) ([]sonarr.LogRecord, error) {
+	return nil, nil
+}
+func (m *mockSonarr) ManualSearch(_ context.Context, _ int) ([]sonarr.Release, error) {
+	return nil, nil
+}
+func (m *mockSonarr) GetQualityProfiles(_ context.Context) ([]sonarr.QualityProfile, error) {
+	return nil, nil
+}
+func (m *mockSonarr) GetBlocklist(_ context.Context, _ int) (*sonarr.BlocklistPage, error) {
+	return nil, nil
+}
+func (m *mockSonarr) GetRootFolders(_ context.Context) ([]sonarr.RootFolder, error) {
+	return nil, nil
+}
+func (m *mockSonarr) GetDownloadClients(_ context.Context) ([]sonarr.DownloadClient, error) {
+	return nil, nil
+}
 
 // mockNotifier records sent messages.
 type mockNotifier struct {

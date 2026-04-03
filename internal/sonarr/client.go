@@ -19,6 +19,14 @@ type Client interface {
 	History(ctx context.Context, pageSize int) (*HistoryPage, error)
 	Health(ctx context.Context) ([]HealthCheck, error)
 	RemoveFailed(ctx context.Context, id int, blocklist bool) error
+	GetSeries(ctx context.Context, seriesID int) (*Series, error)
+	GetEpisodes(ctx context.Context, seriesID int) ([]Episode, error)
+	GetLogs(ctx context.Context, pageSize int, level string) ([]LogRecord, error)
+	ManualSearch(ctx context.Context, episodeID int) ([]Release, error)
+	GetQualityProfiles(ctx context.Context) ([]QualityProfile, error)
+	GetBlocklist(ctx context.Context, pageSize int) (*BlocklistPage, error)
+	GetRootFolders(ctx context.Context) ([]RootFolder, error)
+	GetDownloadClients(ctx context.Context) ([]DownloadClient, error)
 }
 
 // HTTPClient implements Client using Sonarr's v3 REST API.
@@ -110,6 +118,107 @@ func (c *HTTPClient) RemoveFailed(ctx context.Context, id int, blocklist bool) e
 		return fmt.Errorf("remove failed: %w", err)
 	}
 	return nil
+}
+
+func (c *HTTPClient) GetSeries(ctx context.Context, seriesID int) (*Series, error) {
+	u := c.url(fmt.Sprintf("/api/v3/series/%d", seriesID))
+
+	var result Series
+	if err := c.get(ctx, u.String(), &result); err != nil {
+		return nil, fmt.Errorf("get series: %w", err)
+	}
+	return &result, nil
+}
+
+func (c *HTTPClient) GetEpisodes(ctx context.Context, seriesID int) ([]Episode, error) {
+	u := c.url("/api/v3/episode")
+	q := u.Query()
+	q.Set("seriesId", strconv.Itoa(seriesID))
+	u.RawQuery = q.Encode()
+
+	var result []Episode
+	if err := c.get(ctx, u.String(), &result); err != nil {
+		return nil, fmt.Errorf("get episodes: %w", err)
+	}
+	return result, nil
+}
+
+func (c *HTTPClient) GetLogs(ctx context.Context, pageSize int, level string) ([]LogRecord, error) {
+	u := c.url("/api/v3/log")
+	q := u.Query()
+	q.Set("sortDirection", "descending")
+	if pageSize > 0 {
+		q.Set("pageSize", strconv.Itoa(pageSize))
+	}
+	if level != "" {
+		q.Set("filterKey", "level")
+		q.Set("filterValue", level)
+	}
+	u.RawQuery = q.Encode()
+
+	var result LogPage
+	if err := c.get(ctx, u.String(), &result); err != nil {
+		return nil, fmt.Errorf("get logs: %w", err)
+	}
+	return result.Records, nil
+}
+
+func (c *HTTPClient) ManualSearch(ctx context.Context, episodeID int) ([]Release, error) {
+	u := c.url("/api/v3/release")
+	q := u.Query()
+	q.Set("episodeId", strconv.Itoa(episodeID))
+	u.RawQuery = q.Encode()
+
+	var result []Release
+	if err := c.get(ctx, u.String(), &result); err != nil {
+		return nil, fmt.Errorf("manual search: %w", err)
+	}
+	return result, nil
+}
+
+func (c *HTTPClient) GetQualityProfiles(ctx context.Context) ([]QualityProfile, error) {
+	u := c.url("/api/v3/qualityprofile")
+
+	var result []QualityProfile
+	if err := c.get(ctx, u.String(), &result); err != nil {
+		return nil, fmt.Errorf("get quality profiles: %w", err)
+	}
+	return result, nil
+}
+
+func (c *HTTPClient) GetBlocklist(ctx context.Context, pageSize int) (*BlocklistPage, error) {
+	u := c.url("/api/v3/blocklist")
+	if pageSize > 0 {
+		q := u.Query()
+		q.Set("pageSize", strconv.Itoa(pageSize))
+		u.RawQuery = q.Encode()
+	}
+
+	var result BlocklistPage
+	if err := c.get(ctx, u.String(), &result); err != nil {
+		return nil, fmt.Errorf("get blocklist: %w", err)
+	}
+	return &result, nil
+}
+
+func (c *HTTPClient) GetRootFolders(ctx context.Context) ([]RootFolder, error) {
+	u := c.url("/api/v3/rootfolder")
+
+	var result []RootFolder
+	if err := c.get(ctx, u.String(), &result); err != nil {
+		return nil, fmt.Errorf("get root folders: %w", err)
+	}
+	return result, nil
+}
+
+func (c *HTTPClient) GetDownloadClients(ctx context.Context) ([]DownloadClient, error) {
+	u := c.url("/api/v3/downloadclient")
+
+	var result []DownloadClient
+	if err := c.get(ctx, u.String(), &result); err != nil {
+		return nil, fmt.Errorf("get download clients: %w", err)
+	}
+	return result, nil
 }
 
 func (c *HTTPClient) url(path string) *url.URL {

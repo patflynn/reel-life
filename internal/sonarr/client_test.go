@@ -155,6 +155,195 @@ func TestAPIError(t *testing.T) {
 	}
 }
 
+func TestGetSeries(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v3/series/1" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		json.NewEncoder(w).Encode(Series{ID: 1, Title: "Breaking Bad", EpisodeCount: 62, EpisodeFileCount: 62, SizeOnDisk: 100000})
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL, "test-key")
+	series, err := client.GetSeries(context.Background(), 1)
+	if err != nil {
+		t.Fatalf("GetSeries() error: %v", err)
+	}
+	if series.Title != "Breaking Bad" || series.EpisodeCount != 62 {
+		t.Errorf("unexpected series: %+v", series)
+	}
+}
+
+func TestGetEpisodes(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v3/episode" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		if r.URL.Query().Get("seriesId") != "1" {
+			t.Errorf("seriesId = %s, want 1", r.URL.Query().Get("seriesId"))
+		}
+		json.NewEncoder(w).Encode([]Episode{
+			{ID: 1, SeasonNumber: 1, EpisodeNumber: 1, Title: "Pilot", HasFile: true},
+		})
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL, "test-key")
+	episodes, err := client.GetEpisodes(context.Background(), 1)
+	if err != nil {
+		t.Fatalf("GetEpisodes() error: %v", err)
+	}
+	if len(episodes) != 1 || episodes[0].Title != "Pilot" {
+		t.Errorf("unexpected episodes: %+v", episodes)
+	}
+}
+
+func TestGetLogs(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v3/log" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		if r.URL.Query().Get("sortDirection") != "descending" {
+			t.Errorf("sortDirection = %s, want descending", r.URL.Query().Get("sortDirection"))
+		}
+		if r.URL.Query().Get("pageSize") != "10" {
+			t.Errorf("pageSize = %s, want 10", r.URL.Query().Get("pageSize"))
+		}
+		if r.URL.Query().Get("filterValue") != "error" {
+			t.Errorf("filterValue = %s, want error", r.URL.Query().Get("filterValue"))
+		}
+		json.NewEncoder(w).Encode(LogPage{
+			Records: []LogRecord{
+				{Time: "2026-01-01", Level: "error", Logger: "Test", Message: "test error"},
+			},
+		})
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL, "test-key")
+	logs, err := client.GetLogs(context.Background(), 10, "error")
+	if err != nil {
+		t.Fatalf("GetLogs() error: %v", err)
+	}
+	if len(logs) != 1 || logs[0].Level != "error" {
+		t.Errorf("unexpected logs: %+v", logs)
+	}
+}
+
+func TestManualSearch(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v3/release" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		if r.URL.Query().Get("episodeId") != "42" {
+			t.Errorf("episodeId = %s, want 42", r.URL.Query().Get("episodeId"))
+		}
+		json.NewEncoder(w).Encode([]Release{
+			{Title: "Breaking.Bad.S01E01", Indexer: "NZBgeek", Size: 1400000000},
+		})
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL, "test-key")
+	releases, err := client.ManualSearch(context.Background(), 42)
+	if err != nil {
+		t.Fatalf("ManualSearch() error: %v", err)
+	}
+	if len(releases) != 1 || releases[0].Indexer != "NZBgeek" {
+		t.Errorf("unexpected releases: %+v", releases)
+	}
+}
+
+func TestGetQualityProfiles(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v3/qualityprofile" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		json.NewEncoder(w).Encode([]QualityProfile{
+			{ID: 1, Name: "HD-1080p", Cutoff: 7},
+		})
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL, "test-key")
+	profiles, err := client.GetQualityProfiles(context.Background())
+	if err != nil {
+		t.Fatalf("GetQualityProfiles() error: %v", err)
+	}
+	if len(profiles) != 1 || profiles[0].Name != "HD-1080p" {
+		t.Errorf("unexpected profiles: %+v", profiles)
+	}
+}
+
+func TestGetBlocklist(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v3/blocklist" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		if r.URL.Query().Get("pageSize") != "5" {
+			t.Errorf("pageSize = %s, want 5", r.URL.Query().Get("pageSize"))
+		}
+		json.NewEncoder(w).Encode(BlocklistPage{
+			TotalRecords: 1,
+			Records: []BlocklistItem{
+				{ID: 1, SeriesID: 1, SourceTitle: "Bad.Release", Date: "2026-01-01"},
+			},
+		})
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL, "test-key")
+	page, err := client.GetBlocklist(context.Background(), 5)
+	if err != nil {
+		t.Fatalf("GetBlocklist() error: %v", err)
+	}
+	if page.TotalRecords != 1 {
+		t.Errorf("TotalRecords = %d, want 1", page.TotalRecords)
+	}
+}
+
+func TestGetRootFolders(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v3/rootfolder" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		json.NewEncoder(w).Encode([]RootFolder{
+			{Path: "/tv", FreeSpace: 500000000000, TotalSpace: 1000000000000},
+		})
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL, "test-key")
+	folders, err := client.GetRootFolders(context.Background())
+	if err != nil {
+		t.Fatalf("GetRootFolders() error: %v", err)
+	}
+	if len(folders) != 1 || folders[0].Path != "/tv" {
+		t.Errorf("unexpected folders: %+v", folders)
+	}
+}
+
+func TestGetDownloadClients(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v3/downloadclient" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		json.NewEncoder(w).Encode([]DownloadClient{
+			{Name: "SABnzbd", Enable: true, Protocol: "usenet", Priority: 1},
+		})
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL, "test-key")
+	clients, err := client.GetDownloadClients(context.Background())
+	if err != nil {
+		t.Fatalf("GetDownloadClients() error: %v", err)
+	}
+	if len(clients) != 1 || clients[0].Name != "SABnzbd" {
+		t.Errorf("unexpected clients: %+v", clients)
+	}
+}
+
 func TestHistory(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/v3/history" {
