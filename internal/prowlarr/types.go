@@ -50,7 +50,7 @@ type Category struct {
 }
 
 type IndexerTestResult struct {
-	ID      int    `json:"id"`
+	ID      int    `json:"indexerId"`
 	IsValid bool   `json:"isValid"`
 	Message string `json:"message,omitempty"`
 }

@@ -531,19 +531,9 @@ func (a *Agent) dispatchTool(ctx context.Context, name string, rawInput json.Raw
 			if err := json.Unmarshal(rawInput, &input); err != nil {
 				return jsonError("invalid input: " + err.Error()), true
 			}
-			indexers, listErr := a.prowlarr.ListIndexers(ctx)
-			if listErr != nil {
-				return jsonError(listErr.Error()), true
-			}
-			var found *prowlarr.Indexer
-			for i := range indexers {
-				if indexers[i].ID == input.IndexerID {
-					found = &indexers[i]
-					break
-				}
-			}
-			if found == nil {
-				return jsonError(fmt.Sprintf("indexer %d not found", input.IndexerID)), true
+			found, errStr := a.findIndexer(ctx, input.IndexerID)
+			if errStr != "" {
+				return errStr, true
 			}
 			found.Enable = input.Enabled
 			result, err = a.prowlarr.UpdateIndexer(ctx, found)
@@ -552,19 +542,9 @@ func (a *Agent) dispatchTool(ctx context.Context, name string, rawInput json.Raw
 			if err := json.Unmarshal(rawInput, &input); err != nil {
 				return jsonError("invalid input: " + err.Error()), true
 			}
-			indexers, listErr := a.prowlarr.ListIndexers(ctx)
-			if listErr != nil {
-				return jsonError(listErr.Error()), true
-			}
-			var found *prowlarr.Indexer
-			for i := range indexers {
-				if indexers[i].ID == input.IndexerID {
-					found = &indexers[i]
-					break
-				}
-			}
-			if found == nil {
-				return jsonError(fmt.Sprintf("indexer %d not found", input.IndexerID)), true
+			found, errStr := a.findIndexer(ctx, input.IndexerID)
+			if errStr != "" {
+				return errStr, true
 			}
 			found.Priority = input.Priority
 			result, err = a.prowlarr.UpdateIndexer(ctx, found)
@@ -715,6 +695,21 @@ func (a *Agent) dispatchTool(ctx context.Context, name string, rawInput json.Raw
 		return jsonError("failed to marshal result: " + marshalErr.Error()), true
 	}
 	return string(data), false
+}
+
+// findIndexer fetches the indexer list from Prowlarr and returns the indexer with the given ID.
+// On failure, it returns a non-empty JSON error string.
+func (a *Agent) findIndexer(ctx context.Context, id int) (*prowlarr.Indexer, string) {
+	indexers, err := a.prowlarr.ListIndexers(ctx)
+	if err != nil {
+		return nil, jsonError(err.Error())
+	}
+	for i := range indexers {
+		if indexers[i].ID == id {
+			return &indexers[i], ""
+		}
+	}
+	return nil, jsonError(fmt.Sprintf("indexer %d not found", id))
 }
 
 func jsonError(msg string) string {
