@@ -102,7 +102,7 @@ chat:
 agent:
   model: claude-sonnet-4-5-20250929
   max_tokens: 4096
-  history_size: 20  # conversation turns per chat (0 = disabled)
+  history_size: 40  # conversation turns per chat (0 = disabled)
 
 notebook:
   enabled: true
