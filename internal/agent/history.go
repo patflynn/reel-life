@@ -26,9 +26,14 @@ func NewConversationBuffer(capacity int) *ConversationBuffer {
 }
 
 // Add appends a turn, overwriting the oldest when full.
+// If the buffer capacity is 0, the call is a no-op (history disabled).
 func (b *ConversationBuffer) Add(role, content string) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+
+	if b.cap == 0 {
+		return
+	}
 
 	idx := (b.head + b.count) % b.cap
 	if b.count == b.cap {

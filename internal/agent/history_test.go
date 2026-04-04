@@ -72,6 +72,20 @@ func TestConversationBufferReset(t *testing.T) {
 	}
 }
 
+func TestConversationBufferZeroCapacity(t *testing.T) {
+	buf := NewConversationBuffer(0)
+	buf.Add("user", "hello")
+	buf.Add("assistant", "hi")
+
+	turns := buf.Turns()
+	if len(turns) != 0 {
+		t.Errorf("got %d turns from zero-capacity buffer, want 0", len(turns))
+	}
+
+	// Reset should also be safe.
+	buf.Reset()
+}
+
 func TestConversationBufferEmptyTurns(t *testing.T) {
 	buf := NewConversationBuffer(4)
 	turns := buf.Turns()
