@@ -52,6 +52,25 @@ type updateSeriesMonitoringInput struct {
 	Monitored    bool `json:"monitored" jsonschema_description:"Whether to enable (true) or disable (false) monitoring"`
 }
 
+type triggerSeriesSearchInput struct {
+	SeriesID     int  `json:"series_id" jsonschema_description:"Sonarr series ID to search for"`
+	SeasonNumber *int `json:"season_number,omitempty" jsonschema_description:"Season number to search. If omitted, searches the entire series."`
+}
+
+type deleteSeriesInput struct {
+	SeriesID    int  `json:"series_id" jsonschema_description:"Sonarr series ID to delete"`
+	DeleteFiles bool `json:"delete_files,omitempty" jsonschema_description:"Whether to delete the series files from disk (default false)"`
+}
+
+type removeBlocklistItemInput struct {
+	ID int `json:"id" jsonschema_description:"Blocklist item ID to remove"`
+}
+
+type grabReleaseInput struct {
+	GUID      string `json:"guid" jsonschema_description:"Release GUID from manual_search results"`
+	IndexerID int    `json:"indexer_id" jsonschema_description:"Indexer ID from manual_search results"`
+}
+
 type searchMoviesInput struct {
 	Term string `json:"term" jsonschema_description:"The search term to look up movies"`
 }
@@ -139,15 +158,19 @@ type toolDef struct {
 
 // destructiveTools is the set of tools that modify state.
 var destructiveTools = map[string]bool{
-	"add_series":                 true,
-	"remove_failed":              true,
-	"update_series_monitoring":   true,
-	"add_movie":           true,
-	"remove_failed_movie": true,
-	"approve_request":     true,
-	"decline_request":     true,
-	"notebook_write":      true,
-	"notebook_delete":     true,
+	"add_series":                true,
+	"remove_failed":             true,
+	"update_series_monitoring":  true,
+	"trigger_series_search":     true,
+	"delete_series":             true,
+	"remove_blocklist_item":     true,
+	"grab_release":              true,
+	"add_movie":                 true,
+	"remove_failed_movie":       true,
+	"approve_request":           true,
+	"decline_request":           true,
+	"notebook_write":            true,
+	"notebook_delete":           true,
 }
 
 // IsDestructive reports whether the named tool modifies state.
@@ -271,6 +294,38 @@ func sonarrToolDefs() []toolDef {
 				Name:        "update_series_monitoring",
 				Description: anthropic.String("Enable or disable monitoring for a specific season of a series. Use get_series_detail first to find the series ID."),
 				InputSchema: generateSchema[updateSeriesMonitoringInput](),
+			},
+			Destructive: true,
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "trigger_series_search",
+				Description: anthropic.String("Trigger a search for downloads for a series or a specific season. Sonarr will search indexers and automatically grab matching releases."),
+				InputSchema: generateSchema[triggerSeriesSearchInput](),
+			},
+			Destructive: true,
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "delete_series",
+				Description: anthropic.String("Delete a series from Sonarr. Optionally delete the series files from disk."),
+				InputSchema: generateSchema[deleteSeriesInput](),
+			},
+			Destructive: true,
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "remove_blocklist_item",
+				Description: anthropic.String("Remove an item from the blocklist, allowing Sonarr to download that release again."),
+				InputSchema: generateSchema[removeBlocklistItemInput](),
+			},
+			Destructive: true,
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "grab_release",
+				Description: anthropic.String("Download a specific release found via manual_search. Requires the GUID and indexer ID from the search results."),
+				InputSchema: generateSchema[grabReleaseInput](),
 			},
 			Destructive: true,
 		},
