@@ -9,6 +9,16 @@ import (
 )
 
 func (a *Agent) dispatchSonarr(ctx context.Context, name string, rawInput json.RawMessage) (string, bool, bool) {
+	if a.sonarr == nil {
+		switch name {
+		case "search_series", "add_series", "get_queue", "get_history", "check_health", "remove_failed",
+			"get_series_detail", "get_episodes", "get_logs", "manual_search", "get_quality_profiles",
+			"get_blocklist", "get_root_folders", "get_download_clients", "update_series_monitoring",
+			"trigger_series_search", "delete_series", "remove_blocklist_item", "grab_release":
+			return jsonError("Sonarr integration is not configured"), true, true
+		}
+	}
+
 	var result any
 	var err error
 
