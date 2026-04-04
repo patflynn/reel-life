@@ -123,7 +123,8 @@ func (a *Agent) dispatchSonarr(ctx context.Context, name string, rawInput json.R
 		}
 		series, getErr := a.sonarr.GetSeries(ctx, input.SeriesID)
 		if getErr != nil {
-			return jsonError(getErr.Error()), true, true
+			err = getErr
+			break
 		}
 		found := false
 		for i, s := range series.Seasons {
@@ -197,7 +198,8 @@ func (a *Agent) dispatchSonarr(ctx context.Context, name string, rawInput json.R
 		}
 		episodes, getErr := a.sonarr.GetEpisodes(ctx, input.SeriesID, input.SeasonNumber)
 		if getErr != nil {
-			return jsonError(getErr.Error()), true, true
+			err = getErr
+			break
 		}
 		var ids []int
 		for _, ep := range episodes {
@@ -218,7 +220,8 @@ func (a *Agent) dispatchSonarr(ctx context.Context, name string, rawInput json.R
 		}
 		series, getErr := a.sonarr.GetSeries(ctx, input.SeriesID)
 		if getErr != nil {
-			return jsonError(getErr.Error()), true, true
+			err = getErr
+			break
 		}
 		series.QualityProfileID = input.QualityProfileID
 		result, err = a.sonarr.UpdateSeries(ctx, series)
