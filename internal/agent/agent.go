@@ -33,7 +33,8 @@ Your capabilities:
 - View Sonarr logs for debugging
 - Check quality profiles, blocklist, root folders, and download client status
 - Manage indexers via Prowlarr: list, test, enable/disable, update priority, delete, check stats and health, search across indexers
-- List, approve, and decline media requests from Overseerr
+- List, approve, decline, delete, and retry media requests from Overseerr
+- Get detailed information about specific requests
 - Search for movies and TV shows in Overseerr's media database
 - Get request statistics (pending, approved, declined counts)
 
@@ -559,7 +560,7 @@ func (a *Agent) dispatchTool(ctx context.Context, name string, rawInput json.Raw
 			}
 		}
 
-	case "list_requests", "approve_request", "decline_request", "get_request_count", "search_media":
+	case "list_requests", "approve_request", "decline_request", "get_request_detail", "delete_request", "retry_request", "get_request_count", "search_media":
 		if a.overseerr == nil {
 			return jsonError("Overseerr integration is not configured"), true
 		}
@@ -592,6 +593,27 @@ func (a *Agent) dispatchTool(ctx context.Context, name string, rawInput json.Raw
 			if err == nil {
 				result = map[string]string{"status": "declined"}
 			}
+		case "get_request_detail":
+			var input getRequestDetailInput
+			if err := json.Unmarshal(rawInput, &input); err != nil {
+				return jsonError("invalid input: " + err.Error()), true
+			}
+			result, err = a.overseerr.GetRequest(ctx, input.ID)
+		case "delete_request":
+			var input deleteRequestInput
+			if err := json.Unmarshal(rawInput, &input); err != nil {
+				return jsonError("invalid input: " + err.Error()), true
+			}
+			err = a.overseerr.DeleteRequest(ctx, input.ID)
+			if err == nil {
+				result = map[string]string{"status": "deleted"}
+			}
+		case "retry_request":
+			var input retryRequestInput
+			if err := json.Unmarshal(rawInput, &input); err != nil {
+				return jsonError("invalid input: " + err.Error()), true
+			}
+			result, err = a.overseerr.RetryRequest(ctx, input.ID)
 		case "get_request_count":
 			result, err = a.overseerr.GetRequestCount(ctx)
 		case "search_media":

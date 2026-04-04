@@ -15,8 +15,11 @@ import (
 // Client defines the operations available against an Overseerr instance.
 type Client interface {
 	ListRequests(ctx context.Context, filter string, take, skip int) (*RequestPage, error)
+	GetRequest(ctx context.Context, id int) (*Request, error)
 	ApproveRequest(ctx context.Context, id int) error
 	DeclineRequest(ctx context.Context, id int) error
+	DeleteRequest(ctx context.Context, id int) error
+	RetryRequest(ctx context.Context, id int) (*Request, error)
 	GetRequestCount(ctx context.Context) (*RequestCount, error)
 	SearchMedia(ctx context.Context, query string, page int) (*SearchResults, error)
 }
@@ -36,6 +39,35 @@ func NewClient(baseURL, apiKey string) *HTTPClient {
 			Timeout: 10 * time.Second,
 		},
 	}
+}
+
+func (c *HTTPClient) GetRequest(ctx context.Context, id int) (*Request, error) {
+	u := c.url(fmt.Sprintf("/api/v1/request/%d", id))
+
+	var result Request
+	if err := c.get(ctx, u.String(), &result); err != nil {
+		return nil, fmt.Errorf("get request: %w", err)
+	}
+	return &result, nil
+}
+
+func (c *HTTPClient) DeleteRequest(ctx context.Context, id int) error {
+	u := c.url(fmt.Sprintf("/api/v1/request/%d", id))
+
+	if err := c.delete(ctx, u.String()); err != nil {
+		return fmt.Errorf("delete request: %w", err)
+	}
+	return nil
+}
+
+func (c *HTTPClient) RetryRequest(ctx context.Context, id int) (*Request, error) {
+	u := c.url(fmt.Sprintf("/api/v1/request/%d/retry", id))
+
+	var result Request
+	if err := c.post(ctx, u.String(), nil, &result); err != nil {
+		return nil, fmt.Errorf("retry request: %w", err)
+	}
+	return &result, nil
 }
 
 func (c *HTTPClient) ListRequests(ctx context.Context, filter string, take, skip int) (*RequestPage, error) {
@@ -132,6 +164,14 @@ func (c *HTTPClient) post(ctx context.Context, rawURL string, body []byte, out a
 		req.Header.Set("Content-Type", "application/json")
 	}
 	return c.do(req, out)
+}
+
+func (c *HTTPClient) delete(ctx context.Context, rawURL string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, rawURL, nil)
+	if err != nil {
+		return err
+	}
+	return c.do(req, nil)
 }
 
 func (c *HTTPClient) do(req *http.Request, out any) error {

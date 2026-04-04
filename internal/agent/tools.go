@@ -128,6 +128,18 @@ type declineRequestInput struct {
 	ID int `json:"id" jsonschema_description:"Request ID to decline"`
 }
 
+type getRequestDetailInput struct {
+	ID int `json:"id" jsonschema_description:"Request ID to get details for"`
+}
+
+type deleteRequestInput struct {
+	ID int `json:"id" jsonschema_description:"Request ID to delete"`
+}
+
+type retryRequestInput struct {
+	ID int `json:"id" jsonschema_description:"Request ID to retry"`
+}
+
 type searchMediaInput struct {
 	Query string `json:"query" jsonschema_description:"Search query for movies or TV shows"`
 	Page  int    `json:"page,omitempty" jsonschema_description:"Page number for results (default 1)"`
@@ -172,22 +184,24 @@ type toolDef struct {
 
 // destructiveTools is the set of tools that modify state.
 var destructiveTools = map[string]bool{
-	"add_series":                true,
-	"remove_failed":             true,
-	"update_series_monitoring":  true,
-	"trigger_series_search":     true,
-	"delete_series":             true,
-	"remove_blocklist_item":     true,
-	"grab_release":              true,
-	"add_movie":                 true,
-	"remove_failed_movie":       true,
-	"approve_request":           true,
-	"decline_request":           true,
-	"notebook_write":            true,
-	"notebook_delete":           true,
-	"enable_indexer":            true,
-	"update_indexer_priority":   true,
-	"delete_indexer":            true,
+	"add_series":              true,
+	"remove_failed":           true,
+	"update_series_monitoring": true,
+	"trigger_series_search":   true,
+	"delete_series":           true,
+	"remove_blocklist_item":   true,
+	"grab_release":            true,
+	"add_movie":               true,
+	"remove_failed_movie":     true,
+	"approve_request":         true,
+	"decline_request":         true,
+	"delete_request":          true,
+	"retry_request":           true,
+	"notebook_write":          true,
+	"notebook_delete":         true,
+	"enable_indexer":           true,
+	"update_indexer_priority":  true,
+	"delete_indexer":           true,
 }
 
 // IsDestructive reports whether the named tool modifies state.
@@ -491,6 +505,29 @@ func overseerrToolDefs() []toolDef {
 				Name:        "decline_request",
 				Description: anthropic.String("Decline a pending media request in Overseerr."),
 				InputSchema: generateSchema[declineRequestInput](),
+			},
+			Destructive: true,
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "get_request_detail",
+				Description: anthropic.String("Get detailed information about a specific Overseerr media request."),
+				InputSchema: generateSchema[getRequestDetailInput](),
+			},
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "delete_request",
+				Description: anthropic.String("Delete a media request from Overseerr."),
+				InputSchema: generateSchema[deleteRequestInput](),
+			},
+			Destructive: true,
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "retry_request",
+				Description: anthropic.String("Retry a failed Overseerr media request."),
+				InputSchema: generateSchema[retryRequestInput](),
 			},
 			Destructive: true,
 		},
