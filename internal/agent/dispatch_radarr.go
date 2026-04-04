@@ -13,7 +13,7 @@ func (a *Agent) dispatchRadarr(ctx context.Context, name string, rawInput json.R
 		case "search_movies", "add_movie", "get_movie_queue", "get_movie_history", "check_movie_health", "remove_failed_movie",
 			"get_movie_detail", "get_movie_quality_profiles", "get_movie_root_folders", "get_movie_download_clients",
 			"get_movie_blocklist", "manual_movie_search", "update_movie_monitoring", "delete_movie",
-			"trigger_movie_search", "grab_movie_release", "remove_movie_blocklist_item":
+			"trigger_movie_search", "grab_movie_release", "remove_movie_blocklist_item", "update_movie_profile":
 			return jsonError("Radarr integration is not configured"), true, true
 		}
 	}
@@ -147,6 +147,18 @@ func (a *Agent) dispatchRadarr(ctx context.Context, name string, rawInput json.R
 		if err == nil {
 			result = map[string]string{"status": "removed"}
 		}
+	case "update_movie_profile":
+		var input updateMovieProfileInput
+		if err := json.Unmarshal(rawInput, &input); err != nil {
+			return jsonError("invalid input: " + err.Error()), true, true
+		}
+		movie, getErr := a.radarr.GetMovie(ctx, input.MovieID)
+		if getErr != nil {
+			err = getErr
+			break
+		}
+		movie.QualityProfileID = input.QualityProfileID
+		result, err = a.radarr.UpdateMovie(ctx, movie)
 	default:
 		return "", false, false
 	}

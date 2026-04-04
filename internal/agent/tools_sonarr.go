@@ -73,6 +73,11 @@ type updateEpisodeMonitoringInput struct {
 	Monitored bool `json:"monitored" jsonschema_description:"Whether to enable (true) or disable (false) monitoring"`
 }
 
+type updateSeriesProfileInput struct {
+	SeriesID         int `json:"series_id" jsonschema_description:"Sonarr series ID"`
+	QualityProfileID int `json:"quality_profile_id" jsonschema_description:"Quality profile ID to assign. Use get_quality_profiles to find available IDs."`
+}
+
 type monitorSeasonEpisodesInput struct {
 	SeriesID     int  `json:"series_id" jsonschema_description:"Sonarr series ID"`
 	SeasonNumber int  `json:"season_number" jsonschema_description:"Season number whose episodes to update monitoring for"`
@@ -234,6 +239,14 @@ func sonarrToolDefs() []toolDef {
 				Name:        "monitor_season_episodes",
 				Description: anthropic.String("Enable or disable monitoring for all episodes in a specific season. Use get_series_detail first to find the series ID."),
 				InputSchema: generateSchema[monitorSeasonEpisodesInput](),
+			},
+			Destructive: true,
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "update_series_profile",
+				Description: anthropic.String("Update the quality profile for a series. Use get_quality_profiles to find available profile IDs and get_series_detail to see the current profile."),
+				InputSchema: generateSchema[updateSeriesProfileInput](),
 			},
 			Destructive: true,
 		},
