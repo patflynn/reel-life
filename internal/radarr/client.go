@@ -19,6 +19,17 @@ type Client interface {
 	History(ctx context.Context, pageSize int) (*HistoryPage, error)
 	Health(ctx context.Context) ([]HealthCheck, error)
 	RemoveFailed(ctx context.Context, id int, blocklist bool) error
+	GetMovie(ctx context.Context, movieID int) (*Movie, error)
+	GetQualityProfiles(ctx context.Context) ([]QualityProfile, error)
+	GetRootFolders(ctx context.Context) ([]RootFolder, error)
+	GetDownloadClients(ctx context.Context) ([]DownloadClient, error)
+	GetBlocklist(ctx context.Context, pageSize int) (*BlocklistPage, error)
+	ManualSearch(ctx context.Context, movieID int) ([]Release, error)
+	UpdateMovie(ctx context.Context, movie *Movie) (*Movie, error)
+	DeleteMovie(ctx context.Context, movieID int, deleteFiles bool) error
+	Command(ctx context.Context, cmd CommandRequest) error
+	GrabRelease(ctx context.Context, guid string, indexerID int) error
+	DeleteBlocklistItem(ctx context.Context, id int) error
 }
 
 // HTTPClient implements Client using Radarr's v3 REST API.
@@ -99,6 +110,141 @@ func (c *HTTPClient) Health(ctx context.Context) ([]HealthCheck, error) {
 	return result, nil
 }
 
+func (c *HTTPClient) GetMovie(ctx context.Context, movieID int) (*Movie, error) {
+	u := c.url(fmt.Sprintf("/api/v3/movie/%d", movieID))
+
+	var result Movie
+	if err := c.get(ctx, u.String(), &result); err != nil {
+		return nil, fmt.Errorf("get movie: %w", err)
+	}
+	return &result, nil
+}
+
+func (c *HTTPClient) GetQualityProfiles(ctx context.Context) ([]QualityProfile, error) {
+	u := c.url("/api/v3/qualityprofile")
+
+	var result []QualityProfile
+	if err := c.get(ctx, u.String(), &result); err != nil {
+		return nil, fmt.Errorf("get quality profiles: %w", err)
+	}
+	return result, nil
+}
+
+func (c *HTTPClient) GetRootFolders(ctx context.Context) ([]RootFolder, error) {
+	u := c.url("/api/v3/rootfolder")
+
+	var result []RootFolder
+	if err := c.get(ctx, u.String(), &result); err != nil {
+		return nil, fmt.Errorf("get root folders: %w", err)
+	}
+	return result, nil
+}
+
+func (c *HTTPClient) GetDownloadClients(ctx context.Context) ([]DownloadClient, error) {
+	u := c.url("/api/v3/downloadclient")
+
+	var result []DownloadClient
+	if err := c.get(ctx, u.String(), &result); err != nil {
+		return nil, fmt.Errorf("get download clients: %w", err)
+	}
+	return result, nil
+}
+
+func (c *HTTPClient) GetBlocklist(ctx context.Context, pageSize int) (*BlocklistPage, error) {
+	u := c.url("/api/v3/blocklist")
+	if pageSize > 0 {
+		q := u.Query()
+		q.Set("pageSize", strconv.Itoa(pageSize))
+		u.RawQuery = q.Encode()
+	}
+
+	var result BlocklistPage
+	if err := c.get(ctx, u.String(), &result); err != nil {
+		return nil, fmt.Errorf("get blocklist: %w", err)
+	}
+	return &result, nil
+}
+
+func (c *HTTPClient) ManualSearch(ctx context.Context, movieID int) ([]Release, error) {
+	u := c.url("/api/v3/release")
+	q := u.Query()
+	q.Set("movieId", strconv.Itoa(movieID))
+	u.RawQuery = q.Encode()
+
+	var result []Release
+	if err := c.get(ctx, u.String(), &result); err != nil {
+		return nil, fmt.Errorf("manual search: %w", err)
+	}
+	return result, nil
+}
+
+func (c *HTTPClient) UpdateMovie(ctx context.Context, movie *Movie) (*Movie, error) {
+	u := c.url(fmt.Sprintf("/api/v3/movie/%d", movie.ID))
+
+	body, err := json.Marshal(movie)
+	if err != nil {
+		return nil, fmt.Errorf("marshal movie: %w", err)
+	}
+
+	var result Movie
+	if err := c.put(ctx, u.String(), body, &result); err != nil {
+		return nil, fmt.Errorf("update movie: %w", err)
+	}
+	return &result, nil
+}
+
+func (c *HTTPClient) DeleteMovie(ctx context.Context, movieID int, deleteFiles bool) error {
+	u := c.url(fmt.Sprintf("/api/v3/movie/%d", movieID))
+	q := u.Query()
+	q.Set("deleteFiles", strconv.FormatBool(deleteFiles))
+	u.RawQuery = q.Encode()
+
+	if err := c.delete(ctx, u.String()); err != nil {
+		return fmt.Errorf("delete movie: %w", err)
+	}
+	return nil
+}
+
+func (c *HTTPClient) Command(ctx context.Context, cmd CommandRequest) error {
+	u := c.url("/api/v3/command")
+
+	body, err := json.Marshal(cmd)
+	if err != nil {
+		return fmt.Errorf("marshal command: %w", err)
+	}
+
+	if err := c.post(ctx, u.String(), body, nil); err != nil {
+		return fmt.Errorf("command: %w", err)
+	}
+	return nil
+}
+
+func (c *HTTPClient) GrabRelease(ctx context.Context, guid string, indexerID int) error {
+	u := c.url("/api/v3/release")
+
+	body, err := json.Marshal(GrabReleaseRequest{
+		GUID:      guid,
+		IndexerID: indexerID,
+	})
+	if err != nil {
+		return fmt.Errorf("marshal grab release: %w", err)
+	}
+
+	if err := c.post(ctx, u.String(), body, nil); err != nil {
+		return fmt.Errorf("grab release: %w", err)
+	}
+	return nil
+}
+
+func (c *HTTPClient) DeleteBlocklistItem(ctx context.Context, id int) error {
+	u := c.url(fmt.Sprintf("/api/v3/blocklist/%d", id))
+
+	if err := c.delete(ctx, u.String()); err != nil {
+		return fmt.Errorf("delete blocklist item: %w", err)
+	}
+	return nil
+}
+
 func (c *HTTPClient) RemoveFailed(ctx context.Context, id int, blocklist bool) error {
 	u := c.url(fmt.Sprintf("/api/v3/queue/%d", id))
 	q := u.Query()
@@ -130,6 +276,15 @@ func (c *HTTPClient) get(ctx context.Context, rawURL string, out any) error {
 
 func (c *HTTPClient) post(ctx context.Context, rawURL string, body []byte, out any) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, rawURL, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	return c.do(req, out)
+}
+
+func (c *HTTPClient) put(ctx context.Context, rawURL string, body []byte, out any) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, rawURL, bytes.NewReader(body))
 	if err != nil {
 		return err
 	}

@@ -92,6 +92,41 @@ type getMovieHistoryInput struct {
 	PageSize int `json:"page_size,omitempty" jsonschema_description:"Number of history records to return (default 20)"`
 }
 
+type getMovieDetailInput struct {
+	MovieID int `json:"movie_id" jsonschema_description:"Radarr movie ID"`
+}
+
+type getMovieBlocklistInput struct {
+	PageSize int `json:"page_size,omitempty" jsonschema_description:"Number of blocklist records to return (default 20)"`
+}
+
+type manualMovieSearchInput struct {
+	MovieID int `json:"movie_id" jsonschema_description:"Movie ID to search releases for"`
+}
+
+type updateMovieMonitoringInput struct {
+	MovieID   int  `json:"movie_id" jsonschema_description:"Radarr movie ID"`
+	Monitored bool `json:"monitored" jsonschema_description:"Whether the movie should be monitored"`
+}
+
+type deleteMovieInput struct {
+	MovieID     int  `json:"movie_id" jsonschema_description:"Radarr movie ID to delete"`
+	DeleteFiles bool `json:"delete_files,omitempty" jsonschema_description:"Whether to delete movie files from disk (default false)"`
+}
+
+type triggerMovieSearchInput struct {
+	MovieID int `json:"movie_id" jsonschema_description:"Movie ID to trigger a search for"`
+}
+
+type grabMovieReleaseInput struct {
+	GUID      string `json:"guid" jsonschema_description:"Release GUID from manual search results"`
+	IndexerID int    `json:"indexer_id" jsonschema_description:"Indexer ID from manual search results"`
+}
+
+type removeMovieBlocklistItemInput struct {
+	ID int `json:"id" jsonschema_description:"Blocklist item ID to remove"`
+}
+
 type testIndexerInput struct {
 	ID int `json:"id" jsonschema_description:"Indexer ID to test connectivity for"`
 }
@@ -184,24 +219,29 @@ type toolDef struct {
 
 // destructiveTools is the set of tools that modify state.
 var destructiveTools = map[string]bool{
-	"add_series":              true,
-	"remove_failed":           true,
-	"update_series_monitoring": true,
-	"trigger_series_search":   true,
-	"delete_series":           true,
-	"remove_blocklist_item":   true,
-	"grab_release":            true,
-	"add_movie":               true,
-	"remove_failed_movie":     true,
-	"approve_request":         true,
-	"decline_request":         true,
-	"delete_request":          true,
-	"retry_request":           true,
-	"notebook_write":          true,
-	"notebook_delete":         true,
-	"enable_indexer":           true,
-	"update_indexer_priority":  true,
-	"delete_indexer":           true,
+	"add_series":                  true,
+	"remove_failed":               true,
+	"update_series_monitoring":    true,
+	"trigger_series_search":       true,
+	"delete_series":               true,
+	"remove_blocklist_item":       true,
+	"grab_release":                true,
+	"add_movie":                   true,
+	"remove_failed_movie":         true,
+	"update_movie_monitoring":     true,
+	"delete_movie":                true,
+	"trigger_movie_search":        true,
+	"grab_movie_release":          true,
+	"remove_movie_blocklist_item": true,
+	"approve_request":             true,
+	"decline_request":             true,
+	"delete_request":              true,
+	"retry_request":               true,
+	"notebook_write":              true,
+	"notebook_delete":             true,
+	"enable_indexer":              true,
+	"update_indexer_priority":     true,
+	"delete_indexer":              true,
 }
 
 // IsDestructive reports whether the named tool modifies state.
@@ -406,6 +446,88 @@ func radarrToolDefs() []toolDef {
 				Name:        "remove_failed_movie",
 				Description: anthropic.String("Remove a failed download from the Radarr queue. Optionally blocklist the release to prevent re-downloading."),
 				InputSchema: generateSchema[removeFailedMovieInput](),
+			},
+			Destructive: true,
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "get_movie_detail",
+				Description: anthropic.String("Get detailed information about a specific movie including file status, quality profile, and root folder path."),
+				InputSchema: generateSchema[getMovieDetailInput](),
+			},
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "get_movie_quality_profiles",
+				Description: anthropic.String("List all quality profiles configured in Radarr with their cutoff settings."),
+				InputSchema: generateSchema[struct{}](),
+			},
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "get_movie_root_folders",
+				Description: anthropic.String("List Radarr root folders with free and total disk space."),
+				InputSchema: generateSchema[struct{}](),
+			},
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "get_movie_download_clients",
+				Description: anthropic.String("List download clients configured in Radarr with their status, protocol, and priority."),
+				InputSchema: generateSchema[struct{}](),
+			},
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "get_movie_blocklist",
+				Description: anthropic.String("Get blocklisted releases that Radarr will not re-download."),
+				InputSchema: generateSchema[getMovieBlocklistInput](),
+			},
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "manual_movie_search",
+				Description: anthropic.String("Search for available releases for a specific movie. Shows indexer, quality, size, and rejection reasons."),
+				InputSchema: generateSchema[manualMovieSearchInput](),
+			},
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "update_movie_monitoring",
+				Description: anthropic.String("Update the monitoring status of a movie in Radarr. Fetches the movie, sets the monitored flag, and saves it back."),
+				InputSchema: generateSchema[updateMovieMonitoringInput](),
+			},
+			Destructive: true,
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "delete_movie",
+				Description: anthropic.String("Delete a movie from Radarr. Optionally delete files from disk."),
+				InputSchema: generateSchema[deleteMovieInput](),
+			},
+			Destructive: true,
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "trigger_movie_search",
+				Description: anthropic.String("Trigger an automatic search for a movie in Radarr. Sends a MoviesSearch command."),
+				InputSchema: generateSchema[triggerMovieSearchInput](),
+			},
+			Destructive: true,
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "grab_movie_release",
+				Description: anthropic.String("Grab a specific release for a movie from manual search results."),
+				InputSchema: generateSchema[grabMovieReleaseInput](),
+			},
+			Destructive: true,
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "remove_movie_blocklist_item",
+				Description: anthropic.String("Remove an item from the Radarr blocklist, allowing it to be downloaded again."),
+				InputSchema: generateSchema[removeMovieBlocklistItemInput](),
 			},
 			Destructive: true,
 		},
