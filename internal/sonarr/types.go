@@ -160,3 +160,8 @@ type GrabReleaseRequest struct {
 	GUID      string `json:"guid"`
 	IndexerID int    `json:"indexerId"`
 }
+
+type MonitorEpisodesRequest struct {
+	EpisodeIDs []int `json:"episodeIds"`
+	Monitored  bool  `json:"monitored"`
+}

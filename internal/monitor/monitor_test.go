@@ -64,6 +64,10 @@ func (m *mockSonarr) DeleteBlocklistItem(_ context.Context, _ int) error  { retu
 func (m *mockSonarr) GrabRelease(_ context.Context, _ string, _ int) (*sonarr.Release, error) {
 	return &sonarr.Release{}, nil
 }
+func (m *mockSonarr) MonitorEpisodes(_ context.Context, _ []int, _ bool) error { return nil }
+func (m *mockSonarr) UpdateEpisode(_ context.Context, ep *sonarr.Episode) (*sonarr.Episode, error) {
+	return ep, nil
+}
 
 // mockNotifier records sent messages.
 type mockNotifier struct {

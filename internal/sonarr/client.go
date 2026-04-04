@@ -32,6 +32,8 @@ type Client interface {
 	DeleteSeries(ctx context.Context, seriesID int, deleteFiles bool) error
 	DeleteBlocklistItem(ctx context.Context, id int) error
 	GrabRelease(ctx context.Context, guid string, indexerID int) (*Release, error)
+	MonitorEpisodes(ctx context.Context, episodeIDs []int, monitored bool) error
+	UpdateEpisode(ctx context.Context, episode *Episode) (*Episode, error)
 }
 
 // HTTPClient implements Client using Sonarr's v3 REST API.
@@ -291,6 +293,35 @@ func (c *HTTPClient) GrabRelease(ctx context.Context, guid string, indexerID int
 	var result Release
 	if err := c.post(ctx, u.String(), body, &result); err != nil {
 		return nil, fmt.Errorf("grab release: %w", err)
+	}
+	return &result, nil
+}
+
+func (c *HTTPClient) MonitorEpisodes(ctx context.Context, episodeIDs []int, monitored bool) error {
+	u := c.url("/api/v3/episode/monitor")
+
+	body, err := json.Marshal(MonitorEpisodesRequest{EpisodeIDs: episodeIDs, Monitored: monitored})
+	if err != nil {
+		return fmt.Errorf("marshal monitor episodes request: %w", err)
+	}
+
+	if err := c.put(ctx, u.String(), body, nil); err != nil {
+		return fmt.Errorf("monitor episodes: %w", err)
+	}
+	return nil
+}
+
+func (c *HTTPClient) UpdateEpisode(ctx context.Context, episode *Episode) (*Episode, error) {
+	u := c.url(fmt.Sprintf("/api/v3/episode/%d", episode.ID))
+
+	body, err := json.Marshal(episode)
+	if err != nil {
+		return nil, fmt.Errorf("marshal update episode: %w", err)
+	}
+
+	var result Episode
+	if err := c.put(ctx, u.String(), body, &result); err != nil {
+		return nil, fmt.Errorf("update episode: %w", err)
 	}
 	return &result, nil
 }

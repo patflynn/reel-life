@@ -68,6 +68,17 @@ type grabReleaseInput struct {
 	IndexerID int    `json:"indexer_id" jsonschema_description:"Indexer ID from manual_search results"`
 }
 
+type updateEpisodeMonitoringInput struct {
+	EpisodeID int  `json:"episode_id" jsonschema_description:"Sonarr episode ID to update monitoring for"`
+	Monitored bool `json:"monitored" jsonschema_description:"Whether to enable (true) or disable (false) monitoring"`
+}
+
+type monitorSeasonEpisodesInput struct {
+	SeriesID     int  `json:"series_id" jsonschema_description:"Sonarr series ID"`
+	SeasonNumber int  `json:"season_number" jsonschema_description:"Season number whose episodes to update monitoring for"`
+	Monitored    bool `json:"monitored" jsonschema_description:"Whether to enable (true) or disable (false) monitoring for all episodes in the season"`
+}
+
 func sonarrToolDefs() []toolDef {
 	return []toolDef{
 		{
@@ -207,6 +218,22 @@ func sonarrToolDefs() []toolDef {
 				Name:        "grab_release",
 				Description: anthropic.String("Download a specific release found via manual_search. Requires the GUID and indexer ID from the search results."),
 				InputSchema: generateSchema[grabReleaseInput](),
+			},
+			Destructive: true,
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "update_episode_monitoring",
+				Description: anthropic.String("Enable or disable monitoring for a single episode. Use get_episodes first to find the episode ID."),
+				InputSchema: generateSchema[updateEpisodeMonitoringInput](),
+			},
+			Destructive: true,
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "monitor_season_episodes",
+				Description: anthropic.String("Enable or disable monitoring for all episodes in a specific season. Use get_series_detail first to find the series ID."),
+				InputSchema: generateSchema[monitorSeasonEpisodesInput](),
 			},
 			Destructive: true,
 		},
