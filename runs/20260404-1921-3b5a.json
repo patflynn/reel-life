@@ -1,0 +1,16 @@
+{
+  "id": "20260404-1921-3b5a",
+  "prompt": "Add a tool to update a series' quality profile in Sonarr. The agent can already fetch quality profiles (get_quality_profiles) and series details (get_series_detail), and UpdateSeries exists in the client — it just needs a tool that ties them together.\n\n## File structure (per-service files from recent refactor)\n- Tool definitions: internal/agent/tools_sonarr.go\n- Dispatch logic: internal/agent/dispatch_sonarr.go\n- Client: internal/sonarr/client.go\n- Types: internal/sonarr/types.go\n- Destructive tools map: internal/agent/tools.go\n\n## Implementation\n\n### 1. New tool: update_series_profile\nAdd to tools_sonarr.go:\n- Input struct: seriesID int (required), qualityProfileID int (required)\n- Description: 'Update the quality profile for a series. Use get_quality_profiles to find available profile IDs and get_series_detail to see the current profile.'\n- Mark destructive in tools.go\n\n### 2. Dispatch (dispatch_sonarr.go)\nAdd case 'update_series_profile':\n1. Unmarshal input\n2. Call a.sonarr.GetSeries(ctx, input.SeriesID) to get full series\n3. Set series.QualityProfileID = input.QualityProfileID\n4. Call a.sonarr.UpdateSeries(ctx, series)\n5. Return updated series info\n\nThis uses the existing UpdateSeries client method — no new client code needed. The Series struct already has QualityProfileID.\n\n### 3. Same for Radarr: update_movie_profile\nAdd to tools_radarr.go + dispatch_radarr.go:\n- Input: movieID int, qualityProfileID int\n- Same pattern: GetMovie, set QualityProfileID, UpdateMovie\n- Mark destructive\n\n## Testing\nRun 'go test ./...' before creating the PR.",
+  "issue": null,
+  "branch": "agent/20260404-1921-3b5a",
+  "worktree": "/tmp/klaus-sessions/reel-life/20260404-1921-3b5a",
+  "tmux_pane": "%403",
+  "budget": "5",
+  "log_file": "/home/patrick/.klaus/sessions/session-20260403-1752-e050/logs/20260404-1921-3b5a.jsonl",
+  "created_at": "2026-04-04T19:21:57-04:00",
+  "cost_usd": 0.51976325,
+  "duration_ms": 96305,
+  "pr_url": "https://github.com/patflynn/reel-life/pull/41",
+  "target_repo": "reel-life",
+  "clone_dir": "/home/patrick/hack/reel-life"
+}
