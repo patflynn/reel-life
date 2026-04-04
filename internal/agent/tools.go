@@ -32,6 +32,8 @@ var destructiveTools = map[string]bool{
 	"delete_series":               true,
 	"remove_blocklist_item":       true,
 	"grab_release":                true,
+	"update_episode_monitoring":   true,
+	"monitor_season_episodes":     true,
 	"add_movie":                   true,
 	"remove_failed_movie":         true,
 	"update_movie_monitoring":     true,

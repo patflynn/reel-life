@@ -14,7 +14,8 @@ func (a *Agent) dispatchSonarr(ctx context.Context, name string, rawInput json.R
 		case "search_series", "add_series", "get_queue", "get_history", "check_health", "remove_failed",
 			"get_series_detail", "get_episodes", "get_logs", "manual_search", "get_quality_profiles",
 			"get_blocklist", "get_root_folders", "get_download_clients", "update_series_monitoring",
-			"trigger_series_search", "delete_series", "remove_blocklist_item", "grab_release":
+			"trigger_series_search", "delete_series", "remove_blocklist_item", "grab_release",
+			"update_episode_monitoring", "monitor_season_episodes":
 			return jsonError("Sonarr integration is not configured"), true, true
 		}
 	}
@@ -178,6 +179,37 @@ func (a *Agent) dispatchSonarr(ctx context.Context, name string, rawInput json.R
 			return jsonError("invalid input: " + err.Error()), true, true
 		}
 		result, err = a.sonarr.GrabRelease(ctx, input.GUID, input.IndexerID)
+
+	case "update_episode_monitoring":
+		var input updateEpisodeMonitoringInput
+		if err := json.Unmarshal(rawInput, &input); err != nil {
+			return jsonError("invalid input: " + err.Error()), true, true
+		}
+		err = a.sonarr.MonitorEpisodes(ctx, []int{input.EpisodeID}, input.Monitored)
+		if err == nil {
+			result = map[string]string{"status": "updated"}
+		}
+
+	case "monitor_season_episodes":
+		var input monitorSeasonEpisodesInput
+		if err := json.Unmarshal(rawInput, &input); err != nil {
+			return jsonError("invalid input: " + err.Error()), true, true
+		}
+		episodes, getErr := a.sonarr.GetEpisodes(ctx, input.SeriesID, input.SeasonNumber)
+		if getErr != nil {
+			return jsonError(getErr.Error()), true, true
+		}
+		var ids []int
+		for _, ep := range episodes {
+			ids = append(ids, ep.ID)
+		}
+		if len(ids) == 0 {
+			return jsonError(fmt.Sprintf("no episodes found for season %d", input.SeasonNumber)), true, true
+		}
+		err = a.sonarr.MonitorEpisodes(ctx, ids, input.Monitored)
+		if err == nil {
+			result = map[string]any{"status": "updated", "episodeCount": len(ids)}
+		}
 
 	default:
 		return "", false, false

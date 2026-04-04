@@ -32,7 +32,7 @@ func (m *mockSonarr) RemoveFailed(_ context.Context, _ int, _ bool) error { retu
 func (m *mockSonarr) GetSeries(_ context.Context, _ int) (*sonarr.Series, error) {
 	return nil, nil
 }
-func (m *mockSonarr) GetEpisodes(_ context.Context, _ int) ([]sonarr.Episode, error) {
+func (m *mockSonarr) GetEpisodes(_ context.Context, _ int, _ ...int) ([]sonarr.Episode, error) {
 	return nil, nil
 }
 func (m *mockSonarr) GetLogs(_ context.Context, _ int, _ string) ([]sonarr.LogRecord, error) {
@@ -64,6 +64,7 @@ func (m *mockSonarr) DeleteBlocklistItem(_ context.Context, _ int) error  { retu
 func (m *mockSonarr) GrabRelease(_ context.Context, _ string, _ int) (*sonarr.Release, error) {
 	return &sonarr.Release{}, nil
 }
+func (m *mockSonarr) MonitorEpisodes(_ context.Context, _ []int, _ bool) error { return nil }
 
 // mockNotifier records sent messages.
 type mockNotifier struct {
