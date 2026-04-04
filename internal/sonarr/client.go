@@ -20,7 +20,7 @@ type Client interface {
 	Health(ctx context.Context) ([]HealthCheck, error)
 	RemoveFailed(ctx context.Context, id int, blocklist bool) error
 	GetSeries(ctx context.Context, seriesID int) (*Series, error)
-	GetEpisodes(ctx context.Context, seriesID int) ([]Episode, error)
+	GetEpisodes(ctx context.Context, seriesID int, seasonNumber ...int) ([]Episode, error)
 	GetLogs(ctx context.Context, pageSize int, level string) ([]LogRecord, error)
 	ManualSearch(ctx context.Context, episodeID int) ([]Release, error)
 	GetQualityProfiles(ctx context.Context) ([]QualityProfile, error)
@@ -33,7 +33,6 @@ type Client interface {
 	DeleteBlocklistItem(ctx context.Context, id int) error
 	GrabRelease(ctx context.Context, guid string, indexerID int) (*Release, error)
 	MonitorEpisodes(ctx context.Context, episodeIDs []int, monitored bool) error
-	UpdateEpisode(ctx context.Context, episode *Episode) (*Episode, error)
 }
 
 // HTTPClient implements Client using Sonarr's v3 REST API.
@@ -138,10 +137,13 @@ func (c *HTTPClient) GetSeries(ctx context.Context, seriesID int) (*Series, erro
 	return &result, nil
 }
 
-func (c *HTTPClient) GetEpisodes(ctx context.Context, seriesID int) ([]Episode, error) {
+func (c *HTTPClient) GetEpisodes(ctx context.Context, seriesID int, seasonNumber ...int) ([]Episode, error) {
 	u := c.url("/api/v3/episode")
 	q := u.Query()
 	q.Set("seriesId", strconv.Itoa(seriesID))
+	if len(seasonNumber) > 0 {
+		q.Set("seasonNumber", strconv.Itoa(seasonNumber[0]))
+	}
 	u.RawQuery = q.Encode()
 
 	var result []Episode
@@ -309,21 +311,6 @@ func (c *HTTPClient) MonitorEpisodes(ctx context.Context, episodeIDs []int, moni
 		return fmt.Errorf("monitor episodes: %w", err)
 	}
 	return nil
-}
-
-func (c *HTTPClient) UpdateEpisode(ctx context.Context, episode *Episode) (*Episode, error) {
-	u := c.url(fmt.Sprintf("/api/v3/episode/%d", episode.ID))
-
-	body, err := json.Marshal(episode)
-	if err != nil {
-		return nil, fmt.Errorf("marshal update episode: %w", err)
-	}
-
-	var result Episode
-	if err := c.put(ctx, u.String(), body, &result); err != nil {
-		return nil, fmt.Errorf("update episode: %w", err)
-	}
-	return &result, nil
 }
 
 func (c *HTTPClient) url(path string) *url.URL {

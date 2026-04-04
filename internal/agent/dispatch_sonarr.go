@@ -195,15 +195,13 @@ func (a *Agent) dispatchSonarr(ctx context.Context, name string, rawInput json.R
 		if err := json.Unmarshal(rawInput, &input); err != nil {
 			return jsonError("invalid input: " + err.Error()), true, true
 		}
-		episodes, getErr := a.sonarr.GetEpisodes(ctx, input.SeriesID)
+		episodes, getErr := a.sonarr.GetEpisodes(ctx, input.SeriesID, input.SeasonNumber)
 		if getErr != nil {
 			return jsonError(getErr.Error()), true, true
 		}
 		var ids []int
 		for _, ep := range episodes {
-			if ep.SeasonNumber == input.SeasonNumber {
-				ids = append(ids, ep.ID)
-			}
+			ids = append(ids, ep.ID)
 		}
 		if len(ids) == 0 {
 			return jsonError(fmt.Sprintf("no episodes found for season %d", input.SeasonNumber)), true, true
