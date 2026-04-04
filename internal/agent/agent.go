@@ -32,7 +32,7 @@ Your capabilities:
 - Search for available releases and see why they were accepted/rejected
 - View Sonarr logs for debugging
 - Check quality profiles, blocklist, root folders, and download client status
-- Manage indexers via Prowlarr: list, test, check stats and health, search across indexers
+- Manage indexers via Prowlarr: list, test, enable/disable, update priority, delete, check stats and health, search across indexers
 - List, approve, and decline media requests from Overseerr
 - Search for movies and TV shows in Overseerr's media database
 - Get request statistics (pending, approved, declined counts)
@@ -498,7 +498,7 @@ func (a *Agent) dispatchTool(ctx context.Context, name string, rawInput json.Raw
 			}
 		}
 
-	case "list_indexers", "test_indexer", "get_indexer_stats", "check_indexer_health", "search_indexers":
+	case "list_indexers", "test_indexer", "test_all_indexers", "get_indexer_stats", "check_indexer_health", "search_indexers", "enable_indexer", "update_indexer_priority", "delete_indexer":
 		if a.prowlarr == nil {
 			return jsonError("Prowlarr integration is not configured"), true
 		}
@@ -514,6 +514,8 @@ func (a *Agent) dispatchTool(ctx context.Context, name string, rawInput json.Raw
 			if err == nil {
 				result = map[string]string{"status": "ok"}
 			}
+		case "test_all_indexers":
+			result, err = a.prowlarr.TestAllIndexers(ctx)
 		case "get_indexer_stats":
 			result, err = a.prowlarr.GetIndexerStats(ctx)
 		case "check_indexer_health":
@@ -524,6 +526,37 @@ func (a *Agent) dispatchTool(ctx context.Context, name string, rawInput json.Raw
 				return jsonError("invalid input: " + err.Error()), true
 			}
 			result, err = a.prowlarr.Search(ctx, input.Query)
+		case "enable_indexer":
+			var input enableIndexerInput
+			if err := json.Unmarshal(rawInput, &input); err != nil {
+				return jsonError("invalid input: " + err.Error()), true
+			}
+			found, errStr := a.findIndexer(ctx, input.IndexerID)
+			if errStr != "" {
+				return errStr, true
+			}
+			found.Enable = input.Enabled
+			result, err = a.prowlarr.UpdateIndexer(ctx, found)
+		case "update_indexer_priority":
+			var input updateIndexerPriorityInput
+			if err := json.Unmarshal(rawInput, &input); err != nil {
+				return jsonError("invalid input: " + err.Error()), true
+			}
+			found, errStr := a.findIndexer(ctx, input.IndexerID)
+			if errStr != "" {
+				return errStr, true
+			}
+			found.Priority = input.Priority
+			result, err = a.prowlarr.UpdateIndexer(ctx, found)
+		case "delete_indexer":
+			var input deleteIndexerInput
+			if err := json.Unmarshal(rawInput, &input); err != nil {
+				return jsonError("invalid input: " + err.Error()), true
+			}
+			err = a.prowlarr.DeleteIndexer(ctx, input.IndexerID)
+			if err == nil {
+				result = map[string]string{"status": "deleted"}
+			}
 		}
 
 	case "list_requests", "approve_request", "decline_request", "get_request_count", "search_media":
@@ -662,6 +695,21 @@ func (a *Agent) dispatchTool(ctx context.Context, name string, rawInput json.Raw
 		return jsonError("failed to marshal result: " + marshalErr.Error()), true
 	}
 	return string(data), false
+}
+
+// findIndexer fetches the indexer list from Prowlarr and returns the indexer with the given ID.
+// On failure, it returns a non-empty JSON error string.
+func (a *Agent) findIndexer(ctx context.Context, id int) (*prowlarr.Indexer, string) {
+	indexers, err := a.prowlarr.ListIndexers(ctx)
+	if err != nil {
+		return nil, jsonError(err.Error())
+	}
+	for i := range indexers {
+		if indexers[i].ID == id {
+			return &indexers[i], ""
+		}
+	}
+	return nil, jsonError(fmt.Sprintf("indexer %d not found", id))
 }
 
 func jsonError(msg string) string {

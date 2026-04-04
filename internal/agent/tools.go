@@ -100,6 +100,20 @@ type searchIndexersInput struct {
 	Query string `json:"query" jsonschema_description:"Search query to run across all indexers"`
 }
 
+type enableIndexerInput struct {
+	IndexerID int  `json:"indexer_id" jsonschema_description:"Indexer ID to enable or disable"`
+	Enabled   bool `json:"enabled" jsonschema_description:"Set to true to enable, false to disable"`
+}
+
+type updateIndexerPriorityInput struct {
+	IndexerID int `json:"indexer_id" jsonschema_description:"Indexer ID to update"`
+	Priority  int `json:"priority" jsonschema_description:"New priority value for the indexer"`
+}
+
+type deleteIndexerInput struct {
+	IndexerID int `json:"indexer_id" jsonschema_description:"Indexer ID to remove"`
+}
+
 type listRequestsInput struct {
 	Filter string `json:"filter,omitempty" jsonschema_description:"Filter requests by status: pending, approved, all (default all)"`
 	Take   int    `json:"take,omitempty" jsonschema_description:"Number of requests to return (default 20)"`
@@ -171,6 +185,9 @@ var destructiveTools = map[string]bool{
 	"decline_request":           true,
 	"notebook_write":            true,
 	"notebook_delete":           true,
+	"enable_indexer":            true,
+	"update_indexer_priority":   true,
+	"delete_indexer":            true,
 }
 
 // IsDestructive reports whether the named tool modifies state.
@@ -416,6 +433,37 @@ func prowlarrToolDefs() []toolDef {
 				Name:        "search_indexers",
 				Description: anthropic.String("Search across all configured indexers for releases matching a query."),
 				InputSchema: generateSchema[searchIndexersInput](),
+			},
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "enable_indexer",
+				Description: anthropic.String("Enable or disable a Prowlarr indexer."),
+				InputSchema: generateSchema[enableIndexerInput](),
+			},
+			Destructive: true,
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "update_indexer_priority",
+				Description: anthropic.String("Change the priority of a Prowlarr indexer."),
+				InputSchema: generateSchema[updateIndexerPriorityInput](),
+			},
+			Destructive: true,
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "delete_indexer",
+				Description: anthropic.String("Remove an indexer from Prowlarr."),
+				InputSchema: generateSchema[deleteIndexerInput](),
+			},
+			Destructive: true,
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "test_all_indexers",
+				Description: anthropic.String("Test all configured indexers at once."),
+				InputSchema: generateSchema[struct{}](),
 			},
 		},
 	}

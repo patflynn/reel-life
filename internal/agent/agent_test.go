@@ -117,16 +117,30 @@ func (m *mockRadarr) RemoveFailed(_ context.Context, _ int, _ bool) error {
 
 // mockProwlarr implements prowlarr.Client for agent testing.
 type mockProwlarr struct {
-	indexers     []prowlarr.Indexer
-	stats        *prowlarr.IndexerStats
-	health       []prowlarr.HealthCheck
-	searchResult []prowlarr.SearchResult
+	indexers       []prowlarr.Indexer
+	stats          *prowlarr.IndexerStats
+	health         []prowlarr.HealthCheck
+	searchResult   []prowlarr.SearchResult
+	testAllResult  []prowlarr.IndexerTestResult
+	updatedIndexer *prowlarr.Indexer
+	deletedID      int
 }
 
 func (m *mockProwlarr) ListIndexers(_ context.Context) ([]prowlarr.Indexer, error) {
 	return m.indexers, nil
 }
 func (m *mockProwlarr) TestIndexer(_ context.Context, _ int) error {
+	return nil
+}
+func (m *mockProwlarr) TestAllIndexers(_ context.Context) ([]prowlarr.IndexerTestResult, error) {
+	return m.testAllResult, nil
+}
+func (m *mockProwlarr) UpdateIndexer(_ context.Context, indexer *prowlarr.Indexer) (*prowlarr.Indexer, error) {
+	m.updatedIndexer = indexer
+	return indexer, nil
+}
+func (m *mockProwlarr) DeleteIndexer(_ context.Context, id int) error {
+	m.deletedID = id
 	return nil
 }
 func (m *mockProwlarr) GetIndexerStats(_ context.Context) (*prowlarr.IndexerStats, error) {

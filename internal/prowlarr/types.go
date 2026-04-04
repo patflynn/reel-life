@@ -48,3 +48,9 @@ type Category struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
 }
+
+type IndexerTestResult struct {
+	ID      int    `json:"indexerId"`
+	IsValid bool   `json:"isValid"`
+	Message string `json:"message,omitempty"`
+}

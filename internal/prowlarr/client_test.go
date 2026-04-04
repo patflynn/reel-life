@@ -144,6 +144,92 @@ func TestSearch(t *testing.T) {
 	}
 }
 
+func TestTestAllIndexers(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		if r.URL.Path != "/api/v1/indexer/testall" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		json.NewEncoder(w).Encode([]IndexerTestResult{
+			{ID: 1, IsValid: true},
+			{ID: 2, IsValid: false, Message: "connection refused"},
+		})
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL, "test-key")
+	results, err := client.TestAllIndexers(context.Background())
+	if err != nil {
+		t.Fatalf("TestAllIndexers() error: %v", err)
+	}
+	if len(results) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(results))
+	}
+	if !results[0].IsValid {
+		t.Error("expected first indexer to be valid")
+	}
+	if results[1].IsValid {
+		t.Error("expected second indexer to be invalid")
+	}
+	if results[1].Message != "connection refused" {
+		t.Errorf("Message = %q, want %q", results[1].Message, "connection refused")
+	}
+}
+
+func TestUpdateIndexer(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut {
+			t.Errorf("expected PUT, got %s", r.Method)
+		}
+		if r.URL.Path != "/api/v1/indexer/3" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+
+		var idx Indexer
+		json.NewDecoder(r.Body).Decode(&idx)
+		if !idx.Enable {
+			t.Error("expected Enable to be true")
+		}
+		if idx.Priority != 10 {
+			t.Errorf("Priority = %d, want 10", idx.Priority)
+		}
+
+		json.NewEncoder(w).Encode(idx)
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL, "test-key")
+	indexer := &Indexer{ID: 3, Name: "Test", Enable: true, Priority: 10, Protocol: "torrent"}
+	result, err := client.UpdateIndexer(context.Background(), indexer)
+	if err != nil {
+		t.Fatalf("UpdateIndexer() error: %v", err)
+	}
+	if result.Name != "Test" {
+		t.Errorf("Name = %q, want %q", result.Name, "Test")
+	}
+}
+
+func TestDeleteIndexer(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Errorf("expected DELETE, got %s", r.Method)
+		}
+		if r.URL.Path != "/api/v1/indexer/7" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL, "test-key")
+	err := client.DeleteIndexer(context.Background(), 7)
+	if err != nil {
+		t.Fatalf("DeleteIndexer() error: %v", err)
+	}
+}
+
 func TestAPIError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
