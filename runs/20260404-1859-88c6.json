@@ -1,0 +1,16 @@
+{
+  "id": "20260404-1859-88c6",
+  "prompt": "Add episode-level monitoring tools to Sonarr. The codebase was recently refactored — tools and dispatch are split into per-service files. You MUST use the new structure.\n\n## File structure (IMPORTANT — use these files, not tools.go or agent.go)\n- Tool definitions go in: internal/agent/tools_sonarr.go (has sonarrToolDefs() and sonarr input structs)\n- Dispatch logic goes in: internal/agent/dispatch_sonarr.go (has dispatchSonarr method)\n- Client methods go in: internal/sonarr/client.go\n- Types go in: internal/sonarr/types.go\n- Destructive tools map is in: internal/agent/tools.go (the only thing that stays in the shared file)\n\n## Sonarr API endpoints\n\n### 1. Bulk update episode monitoring\nPUT /api/v3/episode/monitor\nBody: {\"episodeIds\": [1, 2, 3], \"monitored\": true}\n\n### 2. Update single episode\nPUT /api/v3/episode/{id}\nFetch episode, set monitored, PUT back.\n\n## Implementation\n\n### A. internal/sonarr/client.go — add to Client interface + implement:\n- MonitorEpisodes(ctx context.Context, episodeIDs []int, monitored bool) error — PUT /api/v3/episode/monitor\n- UpdateEpisode(ctx context.Context, episode *Episode) (*Episode, error) — PUT /api/v3/episode/{id}\n\n### B. internal/sonarr/types.go — add:\ntype MonitorEpisodesRequest struct {\n    EpisodeIDs []int `json:\"episodeIds\"`\n    Monitored  bool  `json:\"monitored\"`\n}\n\n### C. internal/agent/tools_sonarr.go — add input structs + tool definitions:\n1. update_episode_monitoring — input: episodeID int, monitored bool. Mark destructive.\n2. monitor_season_episodes — input: seriesID int, seasonNumber int, monitored bool. Mark destructive. Bulk-monitors all episodes in a season.\n\n### D. internal/agent/dispatch_sonarr.go — add cases:\n1. update_episode_monitoring: call a.sonarr.MonitorEpisodes with single episode ID\n2. monitor_season_episodes: call a.sonarr.GetEpisodes, filter by seasonNumber, call MonitorEpisodes with all matching IDs\n\n### E. internal/agent/tools.go — add to destructiveTools map:\n\"update_episode_monitoring\": true,\n\"monitor_season_episodes\": true,\n\n## Testing\nRun 'go test ./...' before creating the PR.",
+  "issue": null,
+  "branch": "agent/20260404-1859-88c6",
+  "worktree": "/tmp/klaus-sessions/reel-life/20260404-1859-88c6",
+  "tmux_pane": "%401",
+  "budget": "5",
+  "log_file": "/home/patrick/.klaus/sessions/session-20260403-1752-e050/logs/20260404-1859-88c6.jsonl",
+  "created_at": "2026-04-04T18:59:38-04:00",
+  "cost_usd": 0.7445562500000001,
+  "duration_ms": 144504,
+  "pr_url": "https://github.com/patflynn/reel-life/pull/40",
+  "target_repo": "reel-life",
+  "clone_dir": "/home/patrick/hack/reel-life"
+}
