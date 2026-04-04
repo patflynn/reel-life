@@ -10,11 +10,12 @@ type Turn struct {
 
 // ConversationBuffer is a thread-safe ring buffer for conversation turns.
 type ConversationBuffer struct {
-	mu    sync.Mutex
-	turns []Turn
-	head  int
-	count int
-	cap   int
+	mu       sync.Mutex
+	turns    []Turn
+	head     int
+	count    int
+	cap      int
+	onChange func()
 }
 
 // NewConversationBuffer creates a buffer that holds up to capacity turns.
@@ -28,8 +29,6 @@ func NewConversationBuffer(capacity int) *ConversationBuffer {
 // Add appends a turn, overwriting the oldest when full.
 func (b *ConversationBuffer) Add(role, content string) {
 	b.mu.Lock()
-	defer b.mu.Unlock()
-
 	idx := (b.head + b.count) % b.cap
 	if b.count == b.cap {
 		// Buffer full — overwrite oldest and advance head.
@@ -38,6 +37,12 @@ func (b *ConversationBuffer) Add(role, content string) {
 	} else {
 		b.turns[idx] = Turn{Role: role, Content: content}
 		b.count++
+	}
+	cb := b.onChange
+	b.mu.Unlock()
+
+	if cb != nil {
+		cb()
 	}
 }
 

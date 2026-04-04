@@ -1,7 +1,10 @@
 package agent
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 )
@@ -143,5 +146,127 @@ func TestHistoryStoreConcurrentGet(t *testing.T) {
 		if buffers[i] != buffers[0] {
 			t.Fatalf("buffer[%d] differs from buffer[0]", i)
 		}
+	}
+}
+
+func TestPersistentHistoryStoreSaveAndLoad(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "history.json")
+
+	// Create store, add data, let it persist.
+	store := NewPersistentHistoryStore(10, path)
+	store.Get("chat-1").Add("user", "hello")
+	store.Get("chat-1").Add("assistant", "hi there")
+	store.Get("chat-2").Add("user", "hey")
+
+	// Load into a new store and verify.
+	store2 := NewPersistentHistoryStore(10, path)
+	turns1 := store2.Get("chat-1").Turns()
+	if len(turns1) != 2 {
+		t.Fatalf("chat-1: got %d turns, want 2", len(turns1))
+	}
+	if turns1[0].Role != "user" || turns1[0].Content != "hello" {
+		t.Errorf("chat-1 turns[0] = %+v, want user/hello", turns1[0])
+	}
+	if turns1[1].Role != "assistant" || turns1[1].Content != "hi there" {
+		t.Errorf("chat-1 turns[1] = %+v, want assistant/hi there", turns1[1])
+	}
+
+	turns2 := store2.Get("chat-2").Turns()
+	if len(turns2) != 1 || turns2[0].Content != "hey" {
+		t.Errorf("chat-2 turns = %+v, want [user/hey]", turns2)
+	}
+}
+
+func TestPersistentHistoryStoreFileNotExist(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "nonexistent.json")
+	store := NewPersistentHistoryStore(10, path)
+	turns := store.Get("chat-1").Turns()
+	if len(turns) != 0 {
+		t.Errorf("expected empty turns for new store, got %d", len(turns))
+	}
+}
+
+func TestPersistentHistoryStoreCorruptFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "history.json")
+	os.WriteFile(path, []byte("not json{{{"), 0644)
+
+	store := NewPersistentHistoryStore(10, path)
+	turns := store.Get("chat-1").Turns()
+	if len(turns) != 0 {
+		t.Errorf("expected empty turns for corrupt file, got %d", len(turns))
+	}
+}
+
+func TestPersistentHistoryStoreAtomicWrite(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "history.json")
+
+	store := NewPersistentHistoryStore(10, path)
+	store.Get("chat-1").Add("user", "hello")
+
+	// Verify the file exists and is valid JSON.
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to read history file: %v", err)
+	}
+	var hf struct {
+		Chats map[string][]Turn `json:"chats"`
+	}
+	if err := json.Unmarshal(data, &hf); err != nil {
+		t.Fatalf("history file is not valid JSON: %v", err)
+	}
+	if len(hf.Chats["chat-1"]) != 1 {
+		t.Errorf("expected 1 turn in file, got %d", len(hf.Chats["chat-1"]))
+	}
+
+	// No temp files should remain.
+	entries, _ := os.ReadDir(dir)
+	for _, e := range entries {
+		if e.Name() != "history.json" {
+			t.Errorf("unexpected file in dir: %s", e.Name())
+		}
+	}
+}
+
+func TestPersistentHistoryStoreEvictionSurvivesReload(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "history.json")
+
+	store := NewPersistentHistoryStore(3, path)
+	buf := store.Get("chat-1")
+	buf.Add("user", "a")
+	buf.Add("assistant", "b")
+	buf.Add("user", "c")
+	buf.Add("assistant", "d") // evicts "a"
+
+	store2 := NewPersistentHistoryStore(3, path)
+	turns := store2.Get("chat-1").Turns()
+	if len(turns) != 3 {
+		t.Fatalf("got %d turns, want 3", len(turns))
+	}
+	if turns[0].Content != "b" {
+		t.Errorf("oldest turn = %q, want %q", turns[0].Content, "b")
+	}
+	if turns[2].Content != "d" {
+		t.Errorf("newest turn = %q, want %q", turns[2].Content, "d")
+	}
+}
+
+func TestPersistentHistoryStoreNewChatAfterReload(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "history.json")
+
+	store := NewPersistentHistoryStore(10, path)
+	store.Get("chat-1").Add("user", "hello")
+
+	// Reload and add a new chat.
+	store2 := NewPersistentHistoryStore(10, path)
+	store2.Get("chat-2").Add("user", "world")
+
+	// Reload again — both chats should be present.
+	store3 := NewPersistentHistoryStore(10, path)
+	if turns := store3.Get("chat-1").Turns(); len(turns) != 1 {
+		t.Errorf("chat-1: got %d turns, want 1", len(turns))
+	}
+	if turns := store3.Get("chat-2").Turns(); len(turns) != 1 {
+		t.Errorf("chat-2: got %d turns, want 1", len(turns))
 	}
 }
