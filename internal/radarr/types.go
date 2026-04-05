@@ -10,7 +10,8 @@ type Movie struct {
 	Monitored        bool   `json:"monitored"`
 	HasFile          bool   `json:"hasFile"`
 	RootFolderPath   string `json:"rootFolderPath"`
-	QualityProfileID int    `json:"qualityProfileId"`
+	QualityProfileID  int    `json:"qualityProfileId"`
+	LanguageProfileID int    `json:"languageProfileId,omitempty"`
 }
 
 type AddMovieRequest struct {
@@ -116,4 +117,34 @@ type CommandRequest struct {
 type GrabReleaseRequest struct {
 	GUID      string `json:"guid"`
 	IndexerID int    `json:"indexerId"`
+}
+
+type LanguageProfile struct {
+	ID        int            `json:"id"`
+	Name      string         `json:"name"`
+	Languages []LanguageItem `json:"languages"`
+}
+
+type LanguageItem struct {
+	Language Language `json:"language"`
+	Allowed  bool     `json:"allowed"`
+}
+
+type Language struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+}
+
+type CustomFormat struct {
+	ID                              int                `json:"id"`
+	Name                            string             `json:"name"`
+	IncludeCustomFormatWhenRenaming bool               `json:"includeCustomFormatWhenRenaming"`
+	Specifications                  []CustomFormatSpec `json:"specifications"`
+}
+
+type CustomFormatSpec struct {
+	Name           string `json:"name"`
+	Implementation string `json:"implementation"`
+	Negate         bool   `json:"negate"`
+	Required       bool   `json:"required"`
 }

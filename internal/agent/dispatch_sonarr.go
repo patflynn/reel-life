@@ -15,7 +15,8 @@ func (a *Agent) dispatchSonarr(ctx context.Context, name string, rawInput json.R
 			"get_series_detail", "get_episodes", "get_logs", "manual_search", "get_quality_profiles",
 			"get_blocklist", "get_root_folders", "get_download_clients", "update_series_monitoring",
 			"trigger_series_search", "delete_series", "remove_blocklist_item", "grab_release",
-			"update_episode_monitoring", "monitor_season_episodes", "update_series_profile":
+			"update_episode_monitoring", "monitor_season_episodes", "update_series_profile",
+			"get_language_profiles", "update_series_language_profile":
 			return jsonError("Sonarr integration is not configured"), true, true
 		}
 	}
@@ -224,6 +225,21 @@ func (a *Agent) dispatchSonarr(ctx context.Context, name string, rawInput json.R
 			break
 		}
 		series.QualityProfileID = input.QualityProfileID
+		result, err = a.sonarr.UpdateSeries(ctx, series)
+
+	case "get_language_profiles":
+		result, err = a.sonarr.GetLanguageProfiles(ctx)
+
+	case "update_series_language_profile":
+		var input updateSeriesLanguageProfileInput
+		if err := json.Unmarshal(rawInput, &input); err != nil {
+			return jsonError("invalid input: " + err.Error()), true, true
+		}
+		series, getErr := a.sonarr.GetSeries(ctx, input.SeriesID)
+		if getErr != nil {
+			return jsonError(getErr.Error()), true, true
+		}
+		series.LanguageProfileID = input.LanguageProfileID
 		result, err = a.sonarr.UpdateSeries(ctx, series)
 
 	default:

@@ -63,6 +63,11 @@ type removeMovieBlocklistItemInput struct {
 	ID int `json:"id" jsonschema_description:"Blocklist item ID to remove"`
 }
 
+type updateMovieLanguageProfileInput struct {
+	MovieID           int `json:"movie_id" jsonschema_description:"Radarr movie ID"`
+	LanguageProfileID int `json:"language_profile_id" jsonschema_description:"Language profile ID to assign"`
+}
+
 func radarrToolDefs() []toolDef {
 	return []toolDef{
 		{
@@ -196,6 +201,28 @@ func radarrToolDefs() []toolDef {
 				Name:        "update_movie_profile",
 				Description: anthropic.String("Update the quality profile for a movie. Use get_movie_quality_profiles to find available profile IDs and get_movie_detail to see the current profile."),
 				InputSchema: generateSchema[updateMovieProfileInput](),
+			},
+			Destructive: true,
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "get_movie_language_profiles",
+				Description: anthropic.String("List all language profiles configured in Radarr."),
+				InputSchema: generateSchema[struct{}](),
+			},
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "get_movie_custom_formats",
+				Description: anthropic.String("List all custom formats configured in Radarr with their specifications."),
+				InputSchema: generateSchema[struct{}](),
+			},
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "update_movie_language_profile",
+				Description: anthropic.String("Update the language profile assigned to a movie. Fetches the movie, sets the language profile, and saves it back."),
+				InputSchema: generateSchema[updateMovieLanguageProfileInput](),
 			},
 			Destructive: true,
 		},

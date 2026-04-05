@@ -13,7 +13,8 @@ func (a *Agent) dispatchRadarr(ctx context.Context, name string, rawInput json.R
 		case "search_movies", "add_movie", "get_movie_queue", "get_movie_history", "check_movie_health", "remove_failed_movie",
 			"get_movie_detail", "get_movie_quality_profiles", "get_movie_root_folders", "get_movie_download_clients",
 			"get_movie_blocklist", "manual_movie_search", "update_movie_monitoring", "delete_movie",
-			"trigger_movie_search", "grab_movie_release", "remove_movie_blocklist_item", "update_movie_profile":
+			"trigger_movie_search", "grab_movie_release", "remove_movie_blocklist_item", "update_movie_profile",
+			"get_movie_language_profiles", "get_movie_custom_formats", "update_movie_language_profile":
 			return jsonError("Radarr integration is not configured"), true, true
 		}
 	}
@@ -158,6 +159,22 @@ func (a *Agent) dispatchRadarr(ctx context.Context, name string, rawInput json.R
 			break
 		}
 		movie.QualityProfileID = input.QualityProfileID
+		result, err = a.radarr.UpdateMovie(ctx, movie)
+	case "get_movie_language_profiles":
+		result, err = a.radarr.GetLanguageProfiles(ctx)
+	case "get_movie_custom_formats":
+		result, err = a.radarr.GetCustomFormats(ctx)
+	case "update_movie_language_profile":
+		var input updateMovieLanguageProfileInput
+		if err := json.Unmarshal(rawInput, &input); err != nil {
+			return jsonError("invalid input: " + err.Error()), true, true
+		}
+		movie, getErr := a.radarr.GetMovie(ctx, input.MovieID)
+		if getErr != nil {
+			err = getErr
+			break
+		}
+		movie.LanguageProfileID = input.LanguageProfileID
 		result, err = a.radarr.UpdateMovie(ctx, movie)
 	default:
 		return "", false, false

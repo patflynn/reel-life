@@ -65,6 +65,9 @@ func (m *mockSonarr) GrabRelease(_ context.Context, _ string, _ int) (*sonarr.Re
 	return &sonarr.Release{}, nil
 }
 func (m *mockSonarr) MonitorEpisodes(_ context.Context, _ []int, _ bool) error { return nil }
+func (m *mockSonarr) GetLanguageProfiles(_ context.Context) ([]sonarr.LanguageProfile, error) {
+	return nil, nil
+}
 
 // mockNotifier records sent messages.
 type mockNotifier struct {

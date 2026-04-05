@@ -84,6 +84,11 @@ type monitorSeasonEpisodesInput struct {
 	Monitored    bool `json:"monitored" jsonschema_description:"Whether to enable (true) or disable (false) monitoring for all episodes in the season"`
 }
 
+type updateSeriesLanguageProfileInput struct {
+	SeriesID          int `json:"series_id" jsonschema_description:"Sonarr series ID"`
+	LanguageProfileID int `json:"language_profile_id" jsonschema_description:"Language profile ID to assign"`
+}
+
 func sonarrToolDefs() []toolDef {
 	return []toolDef{
 		{
@@ -247,6 +252,21 @@ func sonarrToolDefs() []toolDef {
 				Name:        "update_series_profile",
 				Description: anthropic.String("Update the quality profile for a series. Use get_quality_profiles to find available profile IDs and get_series_detail to see the current profile."),
 				InputSchema: generateSchema[updateSeriesProfileInput](),
+			},
+			Destructive: true,
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "get_language_profiles",
+				Description: anthropic.String("List all language profiles configured in Sonarr."),
+				InputSchema: generateSchema[struct{}](),
+			},
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "update_series_language_profile",
+				Description: anthropic.String("Update the language profile assigned to a series. Fetches the series, sets the language profile ID, and saves it back."),
+				InputSchema: generateSchema[updateSeriesLanguageProfileInput](),
 			},
 			Destructive: true,
 		},

@@ -20,7 +20,8 @@ type Series struct {
 	SizeOnDisk       int64    `json:"sizeOnDisk,omitempty"`
 	RootFolderPath   string   `json:"rootFolderPath"`
 	Path             string   `json:"path,omitempty"`
-	QualityProfileID int      `json:"qualityProfileId"`
+	QualityProfileID  int      `json:"qualityProfileId"`
+	LanguageProfileID int      `json:"languageProfileId,omitempty"`
 }
 
 type AddSeriesRequest struct {
@@ -164,4 +165,20 @@ type GrabReleaseRequest struct {
 type MonitorEpisodesRequest struct {
 	EpisodeIDs []int `json:"episodeIds"`
 	Monitored  bool  `json:"monitored"`
+}
+
+type LanguageProfile struct {
+	ID        int            `json:"id"`
+	Name      string         `json:"name"`
+	Languages []LanguageItem `json:"languages"`
+}
+
+type LanguageItem struct {
+	Language Language `json:"language"`
+	Allowed  bool     `json:"allowed"`
+}
+
+type Language struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
 }

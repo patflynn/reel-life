@@ -33,6 +33,7 @@ type Client interface {
 	DeleteBlocklistItem(ctx context.Context, id int) error
 	GrabRelease(ctx context.Context, guid string, indexerID int) (*Release, error)
 	MonitorEpisodes(ctx context.Context, episodeIDs []int, monitored bool) error
+	GetLanguageProfiles(ctx context.Context) ([]LanguageProfile, error)
 }
 
 // HTTPClient implements Client using Sonarr's v3 REST API.
@@ -311,6 +312,16 @@ func (c *HTTPClient) MonitorEpisodes(ctx context.Context, episodeIDs []int, moni
 		return fmt.Errorf("monitor episodes: %w", err)
 	}
 	return nil
+}
+
+func (c *HTTPClient) GetLanguageProfiles(ctx context.Context) ([]LanguageProfile, error) {
+	u := c.url("/api/v3/languageprofile")
+
+	var result []LanguageProfile
+	if err := c.get(ctx, u.String(), &result); err != nil {
+		return nil, fmt.Errorf("get language profiles: %w", err)
+	}
+	return result, nil
 }
 
 func (c *HTTPClient) url(path string) *url.URL {
