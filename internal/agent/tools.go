@@ -41,6 +41,8 @@ var destructiveTools = map[string]bool{
 	"trigger_movie_search":        true,
 	"grab_movie_release":          true,
 	"remove_movie_blocklist_item": true,
+	"update_series_profile":       true,
+	"update_movie_profile":        true,
 	"approve_request":             true,
 	"decline_request":             true,
 	"delete_request":              true,

@@ -54,6 +54,11 @@ type grabMovieReleaseInput struct {
 	IndexerID int    `json:"indexer_id" jsonschema_description:"Indexer ID from manual search results"`
 }
 
+type updateMovieProfileInput struct {
+	MovieID          int `json:"movie_id" jsonschema_description:"Radarr movie ID"`
+	QualityProfileID int `json:"quality_profile_id" jsonschema_description:"Quality profile ID to assign. Use get_movie_quality_profiles to find available IDs."`
+}
+
 type removeMovieBlocklistItemInput struct {
 	ID int `json:"id" jsonschema_description:"Blocklist item ID to remove"`
 }
@@ -183,6 +188,14 @@ func radarrToolDefs() []toolDef {
 				Name:        "remove_movie_blocklist_item",
 				Description: anthropic.String("Remove an item from the Radarr blocklist, allowing it to be downloaded again."),
 				InputSchema: generateSchema[removeMovieBlocklistItemInput](),
+			},
+			Destructive: true,
+		},
+		{
+			Param: anthropic.ToolParam{
+				Name:        "update_movie_profile",
+				Description: anthropic.String("Update the quality profile for a movie. Use get_movie_quality_profiles to find available profile IDs and get_movie_detail to see the current profile."),
+				InputSchema: generateSchema[updateMovieProfileInput](),
 			},
 			Destructive: true,
 		},
