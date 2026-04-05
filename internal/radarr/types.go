@@ -11,7 +11,7 @@ type Movie struct {
 	HasFile          bool   `json:"hasFile"`
 	RootFolderPath   string `json:"rootFolderPath"`
 	QualityProfileID  int    `json:"qualityProfileId"`
-	LanguageProfileID int    `json:"languageProfileId,omitempty"`
+	LanguageProfileID int    `json:"languageProfileId"`
 }
 
 type AddMovieRequest struct {

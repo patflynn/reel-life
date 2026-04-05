@@ -21,7 +21,7 @@ type Series struct {
 	RootFolderPath   string   `json:"rootFolderPath"`
 	Path             string   `json:"path,omitempty"`
 	QualityProfileID  int      `json:"qualityProfileId"`
-	LanguageProfileID int      `json:"languageProfileId,omitempty"`
+	LanguageProfileID int      `json:"languageProfileId"`
 }
 
 type AddSeriesRequest struct {

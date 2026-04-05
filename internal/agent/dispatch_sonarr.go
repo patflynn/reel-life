@@ -237,7 +237,8 @@ func (a *Agent) dispatchSonarr(ctx context.Context, name string, rawInput json.R
 		}
 		series, getErr := a.sonarr.GetSeries(ctx, input.SeriesID)
 		if getErr != nil {
-			return jsonError(getErr.Error()), true, true
+			err = getErr
+			break
 		}
 		series.LanguageProfileID = input.LanguageProfileID
 		result, err = a.sonarr.UpdateSeries(ctx, series)
