@@ -30,6 +30,8 @@ type Client interface {
 	Command(ctx context.Context, cmd CommandRequest) error
 	GrabRelease(ctx context.Context, guid string, indexerID int) error
 	DeleteBlocklistItem(ctx context.Context, id int) error
+	GetLanguageProfiles(ctx context.Context) ([]LanguageProfile, error)
+	GetCustomFormats(ctx context.Context) ([]CustomFormat, error)
 }
 
 // HTTPClient implements Client using Radarr's v3 REST API.
@@ -256,6 +258,26 @@ func (c *HTTPClient) RemoveFailed(ctx context.Context, id int, blocklist bool) e
 		return fmt.Errorf("remove failed: %w", err)
 	}
 	return nil
+}
+
+func (c *HTTPClient) GetLanguageProfiles(ctx context.Context) ([]LanguageProfile, error) {
+	u := c.url("/api/v3/languageprofile")
+
+	var result []LanguageProfile
+	if err := c.get(ctx, u.String(), &result); err != nil {
+		return nil, fmt.Errorf("get language profiles: %w", err)
+	}
+	return result, nil
+}
+
+func (c *HTTPClient) GetCustomFormats(ctx context.Context) ([]CustomFormat, error) {
+	u := c.url("/api/v3/customformat")
+
+	var result []CustomFormat
+	if err := c.get(ctx, u.String(), &result); err != nil {
+		return nil, fmt.Errorf("get custom formats: %w", err)
+	}
+	return result, nil
 }
 
 func (c *HTTPClient) url(path string) *url.URL {

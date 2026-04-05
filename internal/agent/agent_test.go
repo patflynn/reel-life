@@ -88,6 +88,9 @@ func (m *mockSonarr) GrabRelease(_ context.Context, _ string, _ int) (*sonarr.Re
 	return &sonarr.Release{}, nil
 }
 func (m *mockSonarr) MonitorEpisodes(_ context.Context, _ []int, _ bool) error { return nil }
+func (m *mockSonarr) GetLanguageProfiles(_ context.Context) ([]sonarr.LanguageProfile, error) {
+	return nil, nil
+}
 
 // mockRadarr implements radarr.Client for agent testing.
 type mockRadarr struct {
@@ -147,6 +150,12 @@ func (m *mockRadarr) GrabRelease(_ context.Context, _ string, _ int) error {
 }
 func (m *mockRadarr) DeleteBlocklistItem(_ context.Context, _ int) error {
 	return nil
+}
+func (m *mockRadarr) GetLanguageProfiles(_ context.Context) ([]radarr.LanguageProfile, error) {
+	return nil, nil
+}
+func (m *mockRadarr) GetCustomFormats(_ context.Context) ([]radarr.CustomFormat, error) {
+	return nil, nil
 }
 
 // mockProwlarr implements prowlarr.Client for agent testing.
