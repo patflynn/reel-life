@@ -29,7 +29,7 @@ func notebookToolDefs() []toolDef {
 				Description: anthropic.String("Create or update a note in the persistent notebook. Use pinned type for high-signal info that should always be visible; use reference for detailed info looked up on demand. If updating, provide the existing note's ID."),
 				InputSchema: generateSchema[notebookWriteInput](),
 			},
-			Destructive: true,
+			Mutative: true,
 		},
 		{
 			Param: anthropic.ToolParam{
@@ -51,7 +51,7 @@ func notebookToolDefs() []toolDef {
 				Description: anthropic.String("Delete a note from the notebook by its ID."),
 				InputSchema: generateSchema[notebookDeleteInput](),
 			},
-			Destructive: true,
+			Mutative: true,
 		},
 	}
 }

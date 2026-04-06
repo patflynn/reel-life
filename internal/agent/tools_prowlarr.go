@@ -67,7 +67,7 @@ func prowlarrToolDefs() []toolDef {
 				Description: anthropic.String("Enable or disable a Prowlarr indexer."),
 				InputSchema: generateSchema[enableIndexerInput](),
 			},
-			Destructive: true,
+			Mutative: true,
 		},
 		{
 			Param: anthropic.ToolParam{
@@ -75,7 +75,7 @@ func prowlarrToolDefs() []toolDef {
 				Description: anthropic.String("Change the priority of a Prowlarr indexer."),
 				InputSchema: generateSchema[updateIndexerPriorityInput](),
 			},
-			Destructive: true,
+			Mutative: true,
 		},
 		{
 			Param: anthropic.ToolParam{

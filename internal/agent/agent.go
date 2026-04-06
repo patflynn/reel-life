@@ -237,7 +237,7 @@ func (a *Agent) executeToolWithAudit(ctx context.Context, name string, rawInput 
 
 	// Rate limit check
 	if a.limiter != nil {
-		if err := a.limiter.Allow(name, IsDestructive(name)); err != nil {
+		if err := a.limiter.Allow(name, IsMutative(name), IsDestructive(name)); err != nil {
 			a.logger.Warn("tool rate limited",
 				"tool", name,
 				"error", err,

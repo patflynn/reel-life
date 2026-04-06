@@ -48,7 +48,7 @@ func overseerrToolDefs() []toolDef {
 				Description: anthropic.String("Approve a pending media request in Overseerr. This sends the media to Sonarr/Radarr for downloading."),
 				InputSchema: generateSchema[approveRequestInput](),
 			},
-			Destructive: true,
+			Mutative: true,
 		},
 		{
 			Param: anthropic.ToolParam{
@@ -56,7 +56,7 @@ func overseerrToolDefs() []toolDef {
 				Description: anthropic.String("Decline a pending media request in Overseerr."),
 				InputSchema: generateSchema[declineRequestInput](),
 			},
-			Destructive: true,
+			Mutative: true,
 		},
 		{
 			Param: anthropic.ToolParam{
@@ -79,7 +79,7 @@ func overseerrToolDefs() []toolDef {
 				Description: anthropic.String("Retry a failed Overseerr media request."),
 				InputSchema: generateSchema[retryRequestInput](),
 			},
-			Destructive: true,
+			Mutative: true,
 		},
 		{
 			Param: anthropic.ToolParam{

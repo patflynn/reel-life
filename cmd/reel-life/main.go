@@ -133,7 +133,7 @@ func main() {
 	// Build rate limiter from config (or defaults).
 	var limiter *agent.RateLimiter
 	rl := cfg.Agent.RateLimits
-	maxPerMin, maxPerReq, maxDestructive := agent.DefaultMaxCallsPerMinute, agent.DefaultMaxCallsPerRequest, agent.DefaultMaxDestructive
+	maxPerMin, maxPerReq, maxMutative, maxDestructive := agent.DefaultMaxCallsPerMinute, agent.DefaultMaxCallsPerRequest, agent.DefaultMaxMutative, agent.DefaultMaxDestructive
 	if rl != nil {
 		if rl.MaxCallsPerMinute > 0 {
 			maxPerMin = rl.MaxCallsPerMinute
@@ -141,11 +141,14 @@ func main() {
 		if rl.MaxCallsPerRequest > 0 {
 			maxPerReq = rl.MaxCallsPerRequest
 		}
+		if rl.MaxMutative > 0 {
+			maxMutative = rl.MaxMutative
+		}
 		if rl.MaxDestructive > 0 {
 			maxDestructive = rl.MaxDestructive
 		}
 	}
-	limiter = agent.NewRateLimiter(maxPerMin, maxPerReq, maxDestructive)
+	limiter = agent.NewRateLimiter(maxPerMin, maxPerReq, maxMutative, maxDestructive)
 
 	// Notebook (optional — enabled explicitly or when a path is set).
 	var nb notebook.Notebook

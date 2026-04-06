@@ -12,20 +12,20 @@ import (
 )
 
 func TestRateLimiterAllowsUnderLimit(t *testing.T) {
-	rl := NewRateLimiter(5, 3, 2)
-	if err := rl.Allow("search_series", false); err != nil {
+	rl := NewRateLimiter(5, 3, 2, 1)
+	if err := rl.Allow("search_series", false, false); err != nil {
 		t.Fatalf("expected allow, got %v", err)
 	}
-	if err := rl.Allow("add_series", true); err != nil {
+	if err := rl.Allow("add_series", true, false); err != nil {
 		t.Fatalf("expected allow, got %v", err)
 	}
 }
 
 func TestRateLimiterBlocksPerRequest(t *testing.T) {
-	rl := NewRateLimiter(100, 2, 100)
-	rl.Allow("search_series", false)
-	rl.Allow("get_queue", false)
-	err := rl.Allow("check_health", false)
+	rl := NewRateLimiter(100, 2, 100, 100)
+	rl.Allow("search_series", false, false)
+	rl.Allow("get_queue", false, false)
+	err := rl.Allow("check_health", false, false)
 	if err == nil {
 		t.Fatal("expected rate limit error")
 	}
@@ -35,10 +35,10 @@ func TestRateLimiterBlocksPerRequest(t *testing.T) {
 }
 
 func TestRateLimiterBlocksPerMinute(t *testing.T) {
-	rl := NewRateLimiter(2, 100, 100)
-	rl.Allow("search_series", false)
-	rl.Allow("get_queue", false)
-	err := rl.Allow("check_health", false)
+	rl := NewRateLimiter(2, 100, 100, 100)
+	rl.Allow("search_series", false, false)
+	rl.Allow("get_queue", false, false)
+	err := rl.Allow("check_health", false, false)
 	if err == nil {
 		t.Fatal("expected rate limit error")
 	}
@@ -48,9 +48,9 @@ func TestRateLimiterBlocksPerMinute(t *testing.T) {
 }
 
 func TestRateLimiterBlocksDestructive(t *testing.T) {
-	rl := NewRateLimiter(100, 100, 1)
-	rl.Allow("add_series", true)
-	err := rl.Allow("remove_failed", true)
+	rl := NewRateLimiter(100, 100, 100, 1)
+	rl.Allow("remove_failed", true, true)
+	err := rl.Allow("remove_failed", true, true)
 	if err == nil {
 		t.Fatal("expected rate limit error for destructive action")
 	}
@@ -59,24 +59,98 @@ func TestRateLimiterBlocksDestructive(t *testing.T) {
 	}
 }
 
+func TestRateLimiterBlocksMutative(t *testing.T) {
+	rl := NewRateLimiter(100, 100, 3, 100)
+	for i := 0; i < 3; i++ {
+		if err := rl.Allow("add_movie", true, false); err != nil {
+			t.Fatalf("expected allow on call %d, got %v", i+1, err)
+		}
+	}
+	err := rl.Allow("add_movie", true, false)
+	if err == nil {
+		t.Fatal("expected rate limit error for mutative action")
+	}
+	if !strings.Contains(err.Error(), "content changes") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestMutativeToolsAllowedUpTo20(t *testing.T) {
+	rl := NewRateLimiter(100, 100, 20, 5)
+	for i := 0; i < 20; i++ {
+		if err := rl.Allow("add_movie", true, false); err != nil {
+			t.Fatalf("expected allow on call %d, got %v", i+1, err)
+		}
+	}
+	err := rl.Allow("add_movie", true, false)
+	if err == nil {
+		t.Fatal("expected rate limit error after 20 mutative calls")
+	}
+}
+
+func TestDestructiveCountsTowardBothLimits(t *testing.T) {
+	rl := NewRateLimiter(100, 100, 5, 100)
+	// Use up mutative limit with destructive calls (which are implicitly mutative)
+	for i := 0; i < 5; i++ {
+		if err := rl.Allow("remove_failed", true, true); err != nil {
+			t.Fatalf("expected allow on call %d, got %v", i+1, err)
+		}
+	}
+	// Now even a mutative-only call should be blocked by the mutative limit
+	err := rl.Allow("add_movie", true, false)
+	if err == nil {
+		t.Fatal("expected mutative limit error")
+	}
+	if !strings.Contains(err.Error(), "content changes") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
 func TestRateLimiterReset(t *testing.T) {
-	rl := NewRateLimiter(100, 1, 1)
-	rl.Allow("search_series", false)
-	if err := rl.Allow("search_series", false); err == nil {
+	rl := NewRateLimiter(100, 1, 1, 1)
+	rl.Allow("search_series", false, false)
+	if err := rl.Allow("search_series", false, false); err == nil {
 		t.Fatal("expected rate limit before reset")
 	}
 	rl.Reset()
-	if err := rl.Allow("search_series", false); err != nil {
+	if err := rl.Allow("search_series", false, false); err != nil {
 		t.Fatalf("expected allow after reset, got %v", err)
 	}
 }
 
+func TestIsMutative(t *testing.T) {
+	if !IsMutative("add_series") {
+		t.Error("add_series should be mutative")
+	}
+	if !IsMutative("add_movie") {
+		t.Error("add_movie should be mutative")
+	}
+	if !IsMutative("remove_failed") {
+		t.Error("remove_failed should be mutative (destructive implies mutative)")
+	}
+	if IsMutative("search_series") {
+		t.Error("search_series should not be mutative")
+	}
+}
+
 func TestIsDestructive(t *testing.T) {
-	if !IsDestructive("add_series") {
-		t.Error("add_series should be destructive")
+	if IsDestructive("add_series") {
+		t.Error("add_series should NOT be destructive (it's mutative)")
+	}
+	if IsDestructive("add_movie") {
+		t.Error("add_movie should NOT be destructive (it's mutative)")
 	}
 	if !IsDestructive("remove_failed") {
 		t.Error("remove_failed should be destructive")
+	}
+	if !IsDestructive("delete_series") {
+		t.Error("delete_series should be destructive")
+	}
+	if !IsDestructive("delete_movie") {
+		t.Error("delete_movie should be destructive")
+	}
+	if !IsDestructive("remove_blocklist_item") {
+		t.Error("remove_blocklist_item should be destructive")
 	}
 	if IsDestructive("search_series") {
 		t.Error("search_series should not be destructive")
@@ -84,16 +158,10 @@ func TestIsDestructive(t *testing.T) {
 	if IsDestructive("get_queue") {
 		t.Error("get_queue should not be destructive")
 	}
-	if IsDestructive("check_health") {
-		t.Error("check_health should not be destructive")
-	}
-	if IsDestructive("get_history") {
-		t.Error("get_history should not be destructive")
-	}
 }
 
 func TestRateLimiterDenialReturnedAsToolError(t *testing.T) {
-	rl := NewRateLimiter(100, 100, 0) // zero destructive allowed
+	rl := NewRateLimiter(100, 100, 0, 0) // zero mutative/destructive allowed
 	mock := &mockSonarr{}
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
@@ -106,8 +174,8 @@ func TestRateLimiterDenialReturnedAsToolError(t *testing.T) {
 	if !isErr {
 		t.Fatal("expected error from rate-limited tool")
 	}
-	if !strings.Contains(result, "destructive") {
-		t.Errorf("expected destructive limit message, got %s", result)
+	if !strings.Contains(result, "content changes") {
+		t.Errorf("expected content changes limit message, got %s", result)
 	}
 }
 

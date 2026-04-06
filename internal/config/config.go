@@ -84,6 +84,7 @@ type AgentConfig struct {
 type RateLimitConfig struct {
 	MaxCallsPerMinute  int `yaml:"max_calls_per_minute"`
 	MaxCallsPerRequest int `yaml:"max_calls_per_request"`
+	MaxMutative        int `yaml:"max_mutative"`
 	MaxDestructive     int `yaml:"max_destructive"`
 }
 
