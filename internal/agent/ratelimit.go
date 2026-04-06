@@ -9,28 +9,33 @@ import (
 const (
 	DefaultMaxCallsPerMinute  = 30
 	DefaultMaxCallsPerRequest = 10
+	DefaultMaxMutative        = 20
 	DefaultMaxDestructive     = 5
 )
 
 // RateLimiter enforces per-minute and per-request limits on tool calls,
-// with a separate limit for destructive (state-modifying) tools.
+// with separate limits for mutative (state-changing) and destructive
+// (data-removing) tools.
 type RateLimiter struct {
 	maxCallsPerMinute  int
 	maxCallsPerRequest int
+	mutativeLimit      int
 	destructiveLimit   int
 
 	minuteCount      int
 	requestCount     int
+	mutativeCount    int
 	destructiveCount int
 	windowStart      time.Time
 	mu               sync.Mutex
 }
 
 // NewRateLimiter creates a RateLimiter with the given limits.
-func NewRateLimiter(maxPerMin, maxPerReq, destructiveMax int) *RateLimiter {
+func NewRateLimiter(maxPerMin, maxPerReq, mutativeMax, destructiveMax int) *RateLimiter {
 	return &RateLimiter{
 		maxCallsPerMinute:  maxPerMin,
 		maxCallsPerRequest: maxPerReq,
+		mutativeLimit:      mutativeMax,
 		destructiveLimit:   destructiveMax,
 		windowStart:        time.Now(),
 	}
@@ -38,7 +43,7 @@ func NewRateLimiter(maxPerMin, maxPerReq, destructiveMax int) *RateLimiter {
 
 // Allow checks whether a tool call is permitted. It returns an error describing
 // which limit was exceeded, or nil if the call is allowed.
-func (r *RateLimiter) Allow(toolName string, isDestructive bool) error {
+func (r *RateLimiter) Allow(toolName string, isMutative, isDestructive bool) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -57,12 +62,19 @@ func (r *RateLimiter) Allow(toolName string, isDestructive bool) error {
 		return fmt.Errorf("rate limit exceeded: max %d tool calls per request. Refusing to execute %s", r.maxCallsPerRequest, toolName)
 	}
 
+	if isMutative && r.mutativeCount >= r.mutativeLimit {
+		return fmt.Errorf("safety limit reached: max %d content changes per conversation. Start a new conversation to continue. Refusing to execute %s", r.mutativeLimit, toolName)
+	}
+
 	if isDestructive && r.destructiveCount >= r.destructiveLimit {
-		return fmt.Errorf("rate limit exceeded: max %d destructive actions per request. Refusing to execute %s", r.destructiveLimit, toolName)
+		return fmt.Errorf("safety limit reached: max %d destructive actions per conversation. Start a new conversation to continue. Refusing to execute %s", r.destructiveLimit, toolName)
 	}
 
 	r.minuteCount++
 	r.requestCount++
+	if isMutative {
+		r.mutativeCount++
+	}
 	if isDestructive {
 		r.destructiveCount++
 	}
@@ -74,5 +86,6 @@ func (r *RateLimiter) Reset() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.requestCount = 0
+	r.mutativeCount = 0
 	r.destructiveCount = 0
 }

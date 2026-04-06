@@ -83,7 +83,7 @@ func radarrToolDefs() []toolDef {
 				Description: anthropic.String("Add a movie to Radarr for monitoring and automatic downloading. Requires the TMDB ID from a search result."),
 				InputSchema: generateSchema[addMovieInput](),
 			},
-			Destructive: true,
+			Mutative: true,
 		},
 		{
 			Param: anthropic.ToolParam{
@@ -162,7 +162,7 @@ func radarrToolDefs() []toolDef {
 				Description: anthropic.String("Update the monitoring status of a movie in Radarr. Fetches the movie, sets the monitored flag, and saves it back."),
 				InputSchema: generateSchema[updateMovieMonitoringInput](),
 			},
-			Destructive: true,
+			Mutative: true,
 		},
 		{
 			Param: anthropic.ToolParam{
@@ -178,7 +178,7 @@ func radarrToolDefs() []toolDef {
 				Description: anthropic.String("Trigger an automatic search for a movie in Radarr. Sends a MoviesSearch command."),
 				InputSchema: generateSchema[triggerMovieSearchInput](),
 			},
-			Destructive: true,
+			Mutative: true,
 		},
 		{
 			Param: anthropic.ToolParam{
@@ -186,7 +186,7 @@ func radarrToolDefs() []toolDef {
 				Description: anthropic.String("Grab a specific release for a movie from manual search results."),
 				InputSchema: generateSchema[grabMovieReleaseInput](),
 			},
-			Destructive: true,
+			Mutative: true,
 		},
 		{
 			Param: anthropic.ToolParam{
@@ -202,7 +202,7 @@ func radarrToolDefs() []toolDef {
 				Description: anthropic.String("Update the quality profile for a movie. Use get_movie_quality_profiles to find available profile IDs and get_movie_detail to see the current profile."),
 				InputSchema: generateSchema[updateMovieProfileInput](),
 			},
-			Destructive: true,
+			Mutative: true,
 		},
 		{
 			Param: anthropic.ToolParam{
@@ -224,7 +224,7 @@ func radarrToolDefs() []toolDef {
 				Description: anthropic.String("Update the language profile assigned to a movie. Fetches the movie, sets the language profile, and saves it back."),
 				InputSchema: generateSchema[updateMovieLanguageProfileInput](),
 			},
-			Destructive: true,
+			Mutative: true,
 		},
 	}
 }

@@ -104,7 +104,7 @@ func sonarrToolDefs() []toolDef {
 				Description: anthropic.String("Add a TV series to Sonarr for monitoring and automatic downloading. Requires the TVDB ID from a search result."),
 				InputSchema: generateSchema[addSeriesInput](),
 			},
-			Destructive: true,
+			Mutative: true,
 		},
 		{
 			Param: anthropic.ToolParam{
@@ -197,7 +197,7 @@ func sonarrToolDefs() []toolDef {
 				Description: anthropic.String("Enable or disable monitoring for a specific season of a series. Use get_series_detail first to find the series ID."),
 				InputSchema: generateSchema[updateSeriesMonitoringInput](),
 			},
-			Destructive: true,
+			Mutative: true,
 		},
 		{
 			Param: anthropic.ToolParam{
@@ -205,7 +205,7 @@ func sonarrToolDefs() []toolDef {
 				Description: anthropic.String("Trigger a search for downloads for a series or a specific season. Sonarr will search indexers and automatically grab matching releases."),
 				InputSchema: generateSchema[triggerSeriesSearchInput](),
 			},
-			Destructive: true,
+			Mutative: true,
 		},
 		{
 			Param: anthropic.ToolParam{
@@ -229,7 +229,7 @@ func sonarrToolDefs() []toolDef {
 				Description: anthropic.String("Download a specific release found via manual_search. Requires the GUID and indexer ID from the search results."),
 				InputSchema: generateSchema[grabReleaseInput](),
 			},
-			Destructive: true,
+			Mutative: true,
 		},
 		{
 			Param: anthropic.ToolParam{
@@ -237,7 +237,7 @@ func sonarrToolDefs() []toolDef {
 				Description: anthropic.String("Enable or disable monitoring for a single episode. Use get_episodes first to find the episode ID."),
 				InputSchema: generateSchema[updateEpisodeMonitoringInput](),
 			},
-			Destructive: true,
+			Mutative: true,
 		},
 		{
 			Param: anthropic.ToolParam{
@@ -245,7 +245,7 @@ func sonarrToolDefs() []toolDef {
 				Description: anthropic.String("Enable or disable monitoring for all episodes in a specific season. Use get_series_detail first to find the series ID."),
 				InputSchema: generateSchema[monitorSeasonEpisodesInput](),
 			},
-			Destructive: true,
+			Mutative: true,
 		},
 		{
 			Param: anthropic.ToolParam{
@@ -253,7 +253,7 @@ func sonarrToolDefs() []toolDef {
 				Description: anthropic.String("Update the quality profile for a series. Use get_quality_profiles to find available profile IDs and get_series_detail to see the current profile."),
 				InputSchema: generateSchema[updateSeriesProfileInput](),
 			},
-			Destructive: true,
+			Mutative: true,
 		},
 		{
 			Param: anthropic.ToolParam{
@@ -268,7 +268,7 @@ func sonarrToolDefs() []toolDef {
 				Description: anthropic.String("Update the language profile assigned to a series. Fetches the series, sets the language profile ID, and saves it back."),
 				InputSchema: generateSchema[updateSeriesLanguageProfileInput](),
 			},
-			Destructive: true,
+			Mutative: true,
 		},
 	}
 }
